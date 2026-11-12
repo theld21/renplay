@@ -34,6 +34,8 @@ function titleScore(path: string): number {
   if (/(button|btn|idle|hover|insensitive|selected|icon|logo|overlay|frame|slider|scroll)/.test(base)) return 0
   if (/^(main_?menu|title([ _-]?(bg|screen|background|game))?|menu[ _-]?(bg|background))[ _-]?\d*$/.test(base)) return 3
   if (/(cover|key_?art|splash|poster)/.test(base)) return 2
+  // A picture in the main menu's own folder: images/menus/mainmenu/trio_intro.jpg.
+  if (/(^|\/)(main_?menu|title(_?screen)?)\//i.test(path)) return 2
   if (/(title|main_?menu)/.test(base)) return 1
   return 0
 }
@@ -56,7 +58,7 @@ async function renpyPictures(dir: string, pack: PackReader): Promise<GamePicture
   const all = [...names]
   const titles = all.map((n) => [n, titleScore(n)] as const).filter(([, s]) => s > 0).sort((a, b) => b[1] - a[1]).slice(0, 16)
   const icon = all.find((n) => /(^|\/)gui\/window_icon\.\w+$/i.test(n))
-  const logo = all.filter((n) => /(^|\/)logo\.(png|webp)$/i.test(n)).sort((a, b) => a.split('/').length - b.split('/').length)[0]
+  const logo = all.filter((n) => /(^|\/)(game_?)?logo\.(png|webp)$/i.test(n)).sort((a, b) => a.split('/').length - b.split('/').length)[0]
   const wanted = new Set([...titles.map(([n]) => n), icon, logo].filter((n): n is string => !!n && !inPack.has(n)))
   const zipped = wanted.size ? await readZipEntries(zip, (n) => n.startsWith('game/') && wanted.has(n.slice(5)), ZIP_LIMITS).catch(() => new Map<string, Buffer>()) : new Map<string, Buffer>()
   const bytes = async (n: string) => (inPack.has(n) ? await pack.read(n) : zipped.get(`game/${n}`) ?? null)

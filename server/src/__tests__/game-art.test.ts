@@ -63,6 +63,16 @@ describe('art from a game\'s own files', () => {
     expect(given).toEqual([{ kind: 'wide', scope: 0, size: title.length }, { kind: 'icon', scope: 0, size: expect.any(Number) }])
   })
 
+  it('takes a picture from the main menu\'s own folder and a game_logo', async () => {
+    const dir = join(root, 'renpy-folder')
+    const title = await noise(1280, 720)
+    await build(dir, { 'images/menus/mainmenu/trio_intro.jpg': title, 'images/menus/button_idle.png': await noise(1280, 720), 'images/menus/game_logo.png': await noise(400, 200, 4) })
+    const { given, art } = gameArt(dir)
+    await art.give(row('renpy'))
+    expect(given.map((g) => g.kind)).toEqual(['wide', 'logo'])
+    expect(given[0]!.size).toBe(title.length)
+  })
+
   it('takes an RPG Maker game\'s title picture from System.json', async () => {
     const dir = join(root, 'rpgm')
     const title = await noise(816, 624)
