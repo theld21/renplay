@@ -9,6 +9,8 @@ release notes say what).
 
 ### Added
 
+- A game that is not in the catalog gets its own art: its title screen, window icon and logo from its files when it installs (and for games already installed, when Renplay starts). A game whose title screen is drawn rather than a picture gets a picture of it the first time an admin plays it.
+- An admin can rename a game in its **Details**. The name shows in the library for everyone and a reinstall keeps it. **Use its own name** gives back the catalog's or the game's.
 - **Stretch** in the player's display options fills the whole screen without cropping anything: the game is drawn a little wider or taller. On a long phone a 16:9 game gets about a fifth bigger.
 - Fit, Fill and Stretch work for RPG Maker and other games drawn on a canvas of their own size: the game tells the player its size.
 - **Download and install** in the catalog, for free games on itch.io: Renplay downloads the release the catalog tested, checks its size and checksum, and installs it. No download and upload by hand. With **Keep downloads** off, the download is deleted once the game installed, as an upload is.

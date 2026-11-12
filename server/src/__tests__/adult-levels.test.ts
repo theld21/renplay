@@ -281,7 +281,7 @@ describe('the levels on every route', () => {
     ['GET /games/:id/files', 'game'], ['GET /games/:id/files/raw', 'game'], ['PUT /games/:id/files/raw', 'game'], ['DELETE /games/:id/files/raw', 'game'],
     ['POST /games/:id/files/revert', 'game'], ['POST /games/:id/files/upload', 'game'], ['POST /games/:id/files/apply', 'game'], ['POST /games/:id/files/reset', 'game'],
     ['GET /games', 'list'], ['GET /games/:id', 'game'], ['PUT /games/:id/favorite', 'game'], ['POST /games/:id/play-time', 'game'],
-    ['POST /games/:id/played', 'game'], ['DELETE /games/:id', 'game'], ['DELETE /games/:id/download', 'game'], ['POST /games/:id/reinstall', 'game'],
+    ['POST /games/:id/played', 'game'], ['DELETE /games/:id', 'game'], ['DELETE /games/:id/download', 'game'], ['POST /games/:id/reinstall', 'game'], ['PUT /games/:id/title', 'game'],
     ['PUT /games/:id/cache', 'game'], ['GET /games/:id/recipe', 'game'], ['POST /games/:id/walkthroughs', 'game'], ['PUT /games/:id/walkthroughs/:file', 'game'], ['DELETE /games/:id/walkthroughs/:file', 'game'], ['DELETE /games/:id/art/uploads/:upload', 'game'],
     ['GET /archives', 'list'], ['POST /archives/inspect', 'tool'], ['POST /archives/hash', 'tool'], ['DELETE /archives', 'tool'],
     ['POST /imports', 'tool'], ['POST /uploads', 'person'], ['GET /uploads/:id', 'person'], ['PUT /uploads/:id', 'person'],

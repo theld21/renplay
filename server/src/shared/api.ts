@@ -31,6 +31,8 @@ export interface JobsResponse {
 export interface Game {
   id: string
   title: string
+  /** This fork's own: an admin gave the game this name. */
+  renamed?: boolean
   developer: string | null
   tags: string[]
   tagIds: string[]

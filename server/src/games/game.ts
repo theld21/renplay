@@ -17,6 +17,7 @@ import type { JobManager } from '../jobs/manager.js'
 import type { ProgressStore } from '../progress/store.js'
 import type { SaveStore } from '../saves/store.js'
 import type { Overlays } from './mods.js'
+import type { GameTitles } from './titles.js'
 import type { Game } from '../shared/api.js'
 
 /** The parts a game's answer is made from. */
@@ -30,6 +31,7 @@ export interface GameParts {
   jobs: JobManager
   overlays: Overlays
   catalog: Catalog
+  titles: GameTitles
 }
 
 /** A game as the library shows it to the signed-in person. */
@@ -75,7 +77,9 @@ export async function toGame(game: GameRow, deps: GameParts): Promise<Game> {
     id: row.id,
     // Title, developer, tags and cover come from the catalog. A game without a
     // recipe shows the name it declares itself.
-    title: recipe?.title ?? row.title,
+    // This fork's own: a name an admin gave it comes first.
+    title: deps.titles.get(row.id) ?? recipe?.title ?? row.title,
+    renamed: deps.titles.get(row.id) !== undefined,
     developer: recipe?.developer ?? null,
     tags: recipe?.tags ?? [],
     tagIds: recipe?.tagIds ?? [],

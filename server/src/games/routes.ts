@@ -101,6 +101,14 @@ export function createGamesRouter(deps: Services): Router {
     res.json({ ok: true })
   })
 
+  // This fork's own: an admin names a game as the library shows it. An empty name gives back its own.
+  router.put('/games/:id/title', async (req, res) => {
+    const g = get(req)
+    if (typeof req.body?.title !== 'string') throw new HttpError(400, 'The name must be text')
+    await deps.titles.set(g.id, req.body.title.replace(/\s+/g, ' ').trim().slice(0, 200))
+    res.json({ ok: true, game: await toGame(db.getGame(g.id)!, deps) })
+  })
+
   router.post('/games/:id/reinstall', async (req, res) => {
     const g = get(req)
     const src = parseJson<GameSource>(g.source, {})

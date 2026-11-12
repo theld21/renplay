@@ -155,6 +155,7 @@ export async function createApp(cfg: Config, opts: { startJobs?: boolean } = {})
   if (check.back.length) log('library', `Builds back for ${check.back.join(', ')}`)
   if (check.orphans.length) log('library', `Folders in ${cfg.gamesDir} that belong to no game: ${check.orphans.join(', ')}`, 'warn')
   if (opts.startJobs !== false) jobs.start()
+  if (opts.startJobs !== false) void services.gameArt.backfill(db.allGames())
 
   /** What this server is, in a few lines for the start of the log. */
   const summary = (): string[] => {

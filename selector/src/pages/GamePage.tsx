@@ -25,7 +25,7 @@ import { bytes } from '@shared/format'
 import { recipeLinks, playLink } from '../lib/links'
 import { isRenpy } from '@shared/family'
 import { useCatalog, useGame, useSaves } from '../lib/queries'
-
+import GameName from '../components/GameName'
 import { useAuth } from '../lib/auth'
 import { phoneLabel, stateLabel } from '../lib/tags'
 import type { HistoryPage } from '@shared/api'
@@ -395,7 +395,7 @@ function Details({ game, section, onChangeArt }: { game: Game; section: 'details
 
   return (
     <div className={section === 'details' ? 'grid2' : 'stack'}>
-      {section === 'details' && <div className="stack">
+      {section === 'details' && <div className="stack"><GameName key={game.id + game.title} game={game} />
         <Card title="About">
           {game.summary && <p className="small muted-2" style={{ marginBottom: 12, lineHeight: 1.6 }}>{game.summary}</p>}
           <div className="list tight">

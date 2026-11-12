@@ -37,6 +37,7 @@ import { useMute } from './player/useMute'
 import { useHtmlSaves, useSaving } from './player/useSaving'
 import { usePlayTime } from './player/usePlayTime'
 import { useTelemetry } from './player/useTelemetry'
+import { useTitlePicture } from './player/useTitlePicture'
 import { useElementSize, useSafeInsets, useWakeLock } from './player/useScreen'
 import GameOptions, { type GameOptionsState } from './player/GameOptions'
 import { Bar, Pill } from '../lantern/controls'
@@ -129,6 +130,7 @@ export default function Player() {
   useWakeLock(ready)
   usePlayTime(ready && !exiting && !failed, gameId, userId, sandboxed, frameRef, () => setSignedOut(true))
   const telemetry = useTelemetry(gameId, userId, { ready, online, fullscreen, failed })
+  useTitlePicture(game, ready, frameRef, send)
   // On an iPhone in Safari, once the game has started and never while it loads: once, how to get full screen.
   useEffect(() => {
     if (!ready || fsMode !== 'home-screen' || localStorage.getItem(HOME_TIP_KEY)) return

@@ -39,3 +39,30 @@ it('adds nothing to a page that is not RPG Maker', () => {
   page.fire('load')
   expect([page.window.require, page.window.process]).toEqual([undefined, undefined])
 })
+
+it('sends a picture of the title screen once it has stood a few seconds, once', async () => {
+  class Scene_Title {}
+  const page = htmlRuntime(1, (w) => {
+    w.Scene_Title = Scene_Title
+    w.SceneManager = { _scene: null, snap: () => ({ canvas: { toDataURL: () => 'data:image/jpeg;base64,AAAA' } }) }
+  })
+  const before = page.intervals.length
+  const pictures = () => page.post.mock.calls.map(([m]) => m).filter((m) => m.type === 'renplay:title-picture')
+  // Half-second checks.
+  const checks = async (n: number) => {
+    for (let i = 0; i < n; i++) {
+      for (const fn of page.intervals.slice(before)) fn()
+      await new Promise((r) => setTimeout(r, 0))
+    }
+  }
+  page.message({ type: 'renplay:title-picture' })
+  page.message({ type: 'renplay:title-picture' })
+  expect(page.intervals.length - before).toBe(1)
+  // A splash first, then the title screen for two seconds.
+  await checks(3)
+  page.window.SceneManager._scene = new Scene_Title()
+  await checks(4)
+  expect(pictures()).toEqual([])
+  await checks(4)
+  expect(pictures()).toEqual([expect.objectContaining({ data: 'data:image/jpeg;base64,AAAA' })])
+})

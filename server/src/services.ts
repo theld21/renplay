@@ -2,6 +2,8 @@ import { mkdir } from 'node:fs/promises'
 import { hashArchive } from './library/archives.js'
 import { downloadCatalogGame } from './library/itch.js'
 import { ArtStore } from './art/store.js'
+import { GameArt } from './art/fromgame.js'
+import { GameTitles } from './games/titles.js'
 import { Accounts } from './accounts/accounts.js'
 import { SaveBackups } from './saves/backups.js'
 import { Builds } from './games/builds.js'
@@ -42,6 +44,10 @@ export interface Services {
   engines: EngineStore
   overlays: Overlays
   art: ArtStore
+  /** This fork's own: art from a game's build for games without any. */
+  gameArt: GameArt
+  /** This fork's own: names an admin gave games. */
+  titles: GameTitles
   catalog: Catalog
   backups: SaveBackups
   telemetry: Telemetry
@@ -66,6 +72,8 @@ export async function createServices(cfg: Config): Promise<Services> {
   const purger = new Purger(cfg.purgeDir)
   catalog = new Catalog(cfg, db, content, art)
   await catalog.init()
+  const builds = new Builds(cfg, db, purger)
+  const linked = catalog
   const s: Services = {
     cfg,
     db,
@@ -78,16 +86,24 @@ export async function createServices(cfg: Config): Promise<Services> {
     },
     purger,
     jobs: new JobManager(db, cfg),
-    builds: new Builds(cfg, db, purger),
+    builds,
     engines: new EngineStore(cfg, db, purger),
     overlays: new Overlays(cfg),
     art,
+    titles: new GameTitles(cfg.dataDir),
+    gameArt: new GameArt(art, builds, (row) => linked.gameSubject(row).pictures.length > 0),
     catalog,
     saveStores,
     backups: new SaveBackups(cfg, db, saveStores),
     telemetry: new Telemetry({ cfg, db, catalog, content, accounts, saveStores, version: VERSION }),
   }
-  s.jobs.register('import', 'Install', (ctx) => s.telemetry.install(ctx, async () => (await runImport(ctx, s)) as { recipe?: string | null; engine?: string }))
+  s.jobs.register('import', 'Install', async (ctx) => {
+    const result = await s.telemetry.install(ctx, async () => (await runImport(ctx, s)) as { recipe?: string | null; engine?: string; game?: string })
+    // A game outside the catalog gets its title screen as its art.
+    const row = result?.game ? db.getGame(result.game) : null
+    if (row) await s.gameArt.give(row).catch(() => {})
+    return result
+  })
   s.jobs.register('apply-mods', 'Mod build', async (ctx) => {
     const built = await applyMods(ctx, s)
     s.telemetry.feature('modBuilds')
