@@ -9,6 +9,7 @@ release notes say what).
 
 ### Added
 
+- **On-screen buttons** over a game, for phones and tablets: a d-pad and buttons that press the game's keys, with tap, hold, or on and off. RPG Maker games start with arrows, OK, Back and Dash. Ren'Py games have Skip, Hide, Back and Menu, off until switched on. In the player's options you switch them on, set how much they show and lay them out: drag to move, drag the handle to resize, tap one to choose its key. Each game keeps its own layout for portrait and for landscape, and can copy another game's. A button at the top hides them for a while.
 - A game that is not in the catalog gets its own art: its title screen, window icon and logo from its files when it installs (and for games already installed, when Renplay starts). A game whose title screen is drawn rather than a picture gets a picture of it the first time an admin plays it.
 - An admin can rename a game in its **Details**. The name shows in the library for everyone and a reinstall keeps it. **Use its own name** gives back the catalog's or the game's.
 - **Stretch** in the player's display options fills the whole screen without cropping anything: the game is drawn a little wider or taller. On a long phone a 16:9 game gets about a fifth bigger.

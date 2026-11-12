@@ -38,6 +38,9 @@ import { useHtmlSaves, useSaving } from './player/useSaving'
 import { usePlayTime } from './player/usePlayTime'
 import { useTelemetry } from './player/useTelemetry'
 import { useTitlePicture } from './player/useTitlePicture'
+import { usePad } from './player/vpad/usePad'
+import VirtualPad from './player/vpad/VirtualPad'
+import PadPanel from './player/vpad/PadPanel'
 import { useElementSize, useSafeInsets, useWakeLock } from './player/useScreen'
 import GameOptions, { type GameOptionsState } from './player/GameOptions'
 import { Bar, Pill } from '../lantern/controls'
@@ -131,6 +134,7 @@ export default function Player() {
   usePlayTime(ready && !exiting && !failed, gameId, userId, sandboxed, frameRef, () => setSignedOut(true))
   const telemetry = useTelemetry(gameId, userId, { ready, online, fullscreen, failed })
   useTitlePicture(game, ready, frameRef, send)
+  const vpad = usePad(game, touch, send)
   // On an iPhone in Safari, once the game has started and never while it loads: once, how to get full screen.
   useEffect(() => {
     if (!ready || fsMode !== 'home-screen' || localStorage.getItem(HOME_TIP_KEY)) return
@@ -469,6 +473,7 @@ export default function Player() {
         />
       )}
 
+      {ready && !drawer && !guide && <VirtualPad pad={vpad} insets={insets} />}
       {fullscreen && escLocked && (escHeld || escHint) && <EscapeHint held={escHeld} top={Math.max(insets.top, pad.top) + 60} />}
 
       <Confirm
@@ -528,6 +533,7 @@ export default function Player() {
                 </Pill>
               )}
               {!sandboxed && <GameOptions options={gameOptions} onChange={sendOptions} onAccessibility={() => send({ type: 'renplay:accessibility' })} />}
+              <PadPanel pad={vpad} gameId={gameId} onEdit={() => { setDrawer(null); vpad.setEditing(true) }} />
               <DisplayPanel
                 prefs={prefs}
                 setPrefs={setPrefs}

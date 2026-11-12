@@ -22,8 +22,8 @@ export interface Runtimes {
  */
 export function readRuntimes(): Runtimes {
   const read = (name: string) => readFileSync(join(RUNTIME_DIR, name), 'utf-8')
-  // This fork's own title picture goes with what both share.
-  const player = `${read('renplay-player.js')}\n${read('renplay-title.js')}`
+  // This fork's own title picture and on-screen keys go with what both share.
+  const player = `${read('renplay-player.js')}\n${read('renplay-title.js')}\n${read('renplay-keys.js')}`
   const wrap = (own: string) =>
     `;(function () {\n'use strict'\n// A page that loads the runtime twice keeps the first.\nif (window.__renplayPlayer) return\nwindow.__renplayPlayer = true\n${player}\n${own}\n})()\n`
   const renpy = wrap(read('renplay-runtime.js'))

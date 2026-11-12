@@ -3,6 +3,7 @@
 import type { ArtCredit, ArtFormat, ArtSet } from './art.js'
 import type { AdultLevel } from './levels.js'
 import type { ArtKind, GameState, Recipe, Vocabulary } from './recipe.js'
+import type { PadLayout } from './controls.js'
 
 /** A person's status with a game. Stalled, Dropped and Finished leave Up next. */
 export type PlayStatus = 'playing' | 'stalled' | 'dropped' | 'finished'
@@ -512,4 +513,13 @@ export interface UploadStarted {
   id: string
   chunkSize: number
   received: number
+}
+
+/** This fork's own: a person's on-screen control layout for a game (shared/controls.ts). */
+export interface PadLayoutAnswer {
+  layout: PadLayout | null
+}
+/** This fork's own: the games a person laid out controls for. */
+export interface PadGames {
+  games: Array<{ id: string; title: string; updatedAt: number }>
 }

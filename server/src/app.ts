@@ -30,6 +30,7 @@ import { createMetricsRouter } from './system/metrics.js'
 import { createSystemRouter } from './system/routes.js'
 import { createTelemetryRouter } from './telemetry/routes.js'
 import type { SaveStore } from './saves/store.js'
+import { createControlsRouter } from './controls/routes.js'
 import { createServices, type Services } from './services.js'
 import { HttpError } from './util/paths.js'
 import type { Purger } from './util/purge.js'
@@ -127,6 +128,7 @@ export async function createApp(cfg: Config, opts: { startJobs?: boolean } = {})
   app.use('/api', createLibraryRouter(services))
   app.use('/api', createCatalogRouter(services))
   app.use('/api', createArtRouter(services))
+  app.use('/api', createControlsRouter(services))
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found')))
 
   const onError: ErrorRequestHandler = (err, _req, res, _next) => {
