@@ -91,10 +91,19 @@ async function rpgMakerPictures(pack: PackReader): Promise<GamePicture[]> {
     return []
   }
   if (!name) return []
-  const from = `img/titles1/${name}.png`
-  const data = (await pack.read(from).catch(() => null)) ?? (await decryptedRpgMaker(pack, from).catch(() => null))
-  const size = data && data.length >= MIN_BYTES ? await sizeOf(data) : null
-  return data && size && isScreen(size) ? [{ kind: 'wide', data, from }] : []
+  // The picture it names, or else the ones named after it (title01, title02 for a plugin that picks one).
+  const index = await pack.index().catch(() => new Map<string, [number, number]>())
+  const prefix = `img/titles1/${name}`.toLowerCase()
+  const named = [...index.keys()]
+    .filter((n) => n.toLowerCase().startsWith(prefix) && /\.(png|rpgmvp|png_)$/i.test(n))
+    .map((n) => n.replace(/\.(rpgmvp|png_)$/i, '.png'))
+    .sort((a, b) => a.length - b.length || a.localeCompare(b))
+  for (const from of [...new Set([`img/titles1/${name}.png`, ...named])].slice(0, 6)) {
+    const data = (await pack.read(from).catch(() => null)) ?? (await decryptedRpgMaker(pack, from).catch(() => null))
+    const size = data && data.length >= MIN_BYTES ? await sizeOf(data) : null
+    if (data && size && isScreen(size)) return [{ kind: 'wide', data, from }]
+  }
+  return []
 }
 
 /** The pictures a game's build has for its art. */

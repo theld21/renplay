@@ -72,6 +72,15 @@ describe('art from a game\'s own files', () => {
     expect(given).toEqual([{ kind: 'wide', scope: 0, size: title.length }])
   })
 
+  it('takes the first picture named after the title RPG Maker names, when that one is not there', async () => {
+    const dir = join(root, 'rpgm-random')
+    const first = await noise(816, 624)
+    await build(dir, { 'data/System.json': Buffer.from(JSON.stringify({ title1Name: 'title' })), 'img/titles1/title01.png': first, 'img/titles1/title02.png': await noise(816, 624) })
+    const { given, art } = gameArt(dir)
+    await art.give(row('html'))
+    expect(given).toEqual([{ kind: 'wide', scope: 0, size: first.length }])
+  })
+
   it('leaves a game that has pictures alone', async () => {
     const { given, art } = gameArt(join(root, 'renpy'), true)
     await art.give(row('renpy'))
