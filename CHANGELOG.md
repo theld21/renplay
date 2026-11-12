@@ -20,6 +20,7 @@ release notes say what).
 
 ### Changed
 
+- The player's menu fits a phone's width: its Options no longer scroll sideways, and a switch that is on is the same size as one that is off.
 - The player's menu button over a game is only the faint Renplay mark, without its label or background, so it hides less of the game.
 - On a phone, the game page's sections (Play, Walkthroughs, Details, Manage) fit the screen without scrolling.
 - **Add games** takes several downloads at once and uploads them one after another. A zip of a game Renplay cannot install (a Unity, Godot or RPG Maker XP, VX or VX Ace PC build) is refused before anything is sent, with the reason.

@@ -23,3 +23,16 @@
     display: none;
   }
 }
+
+/* The player menu never scrolls sideways on a phone. Its switches reach 6 px past their row for a
+   bigger touch area: the body gives them that room inside the drawer's own padding. */
+.pd-body {
+  margin-inline: -6px;
+  padding-inline: 6px;
+  overflow-x: hidden;
+}
+
+/* A switch that is on fills only its track, like one that is off, not its larger touch area. */
+.sw.on {
+  background-clip: content-box;
+}
