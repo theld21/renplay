@@ -14,6 +14,7 @@ import { ago, pct } from '../lib/format'
 import { bytes } from '@shared/format'
 import { useArchives, useCatalog, useGames, useJobs, useSystem } from '../lib/queries'
 import { uploadArchive, type UploadHandle } from '../lib/upload'
+import { uploadRefusal } from '../lib/zipcheck'
 import Sheet from '../lantern/Sheet'
 
 // A game in the catalog works; only a release marked broken is worth a word.
@@ -311,8 +312,31 @@ function UploadZone() {
   const [drag, setDrag] = useState(false)
   const [up, setUp] = useState<{ file: File; sent: number; handle: UploadHandle; paused: boolean } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Several downloads go up one after another. A game Renplay cannot install is not sent at all.
+  const queue = useRef<File[]>([])
+  const busy = useRef(false)
+  const [waiting, setWaiting] = useState(0)
 
-  const start = (file: File) => {
+  const next = () => {
+    const file = queue.current.shift()
+    setWaiting(queue.current.length)
+    busy.current = !!file
+    if (file) void start(file)
+  }
+  const add = (files: FileList | null) => {
+    if (!files?.length) return
+    queue.current.push(...Array.from(files))
+    setWaiting(queue.current.length)
+    if (!busy.current) next()
+  }
+
+  const start = async (file: File) => {
+    const refusal = await uploadRefusal(file)
+    if (refusal) {
+      toast(`${file.name} was not uploaded. ${refusal}`, 'error')
+      next()
+      return
+    }
     const handle = uploadArchive(file, (sent) => setUp((u) => (u ? { ...u, sent } : u)))
     setUp({ file, sent: 0, handle, paused: false })
     handle.promise
@@ -321,11 +345,13 @@ function UploadZone() {
         void qc.invalidateQueries({ queryKey: ['archives'] })
         void qc.invalidateQueries({ queryKey: ['jobs'] })
         void qc.invalidateQueries({ queryKey: ['games'] })
-        setUp(null)
       })
       .catch((e) => {
         if (errorText(e) !== 'Upload cancelled') toast(errorText(e), 'error')
+      })
+      .finally(() => {
         setUp(null)
+        next()
       })
   }
 
@@ -339,8 +365,7 @@ function UploadZone() {
       onDrop={(e) => {
         e.preventDefault()
         setDrag(false)
-        const f = e.dataTransfer.files[0]
-        if (f && !up) start(f)
+        add(e.dataTransfer.files)
       }}
       className="panel"
       style={{ border: drag ? '1.5px dashed var(--pink)' : '1.5px dashed var(--plate-3-flat)', textAlign: 'center', padding: '28px 18px' }}
@@ -354,6 +379,7 @@ function UploadZone() {
           <Bar value={up.sent / up.file.size} />
           <div className="xs muted">
             {bytes(up.sent)} of {bytes(up.file.size)}. If it stops, pick the same file again to continue.
+            {waiting > 0 && ` ${waiting} more ${waiting === 1 ? 'download waits' : 'downloads wait'} after this one.`}
           </div>
           <div className="actions" style={{ justifyContent: 'center' }}>
             {up.paused ? (
@@ -376,15 +402,15 @@ function UploadZone() {
             <CloudUpload style={{ width: 28, height: 28 }} />
           </div>
           <div className="h3" style={{ marginTop: 8 }}>
-            Drop a download here, or choose a file
+            Drop downloads here, or choose them
           </div>
           <p className="small muted" style={{ marginTop: 4 }}>
             Zip, 7z or rar of any size. If the connection drops, pick the same file again and it continues.
           </p>
-          <input ref={inputRef} type="file" accept=".zip,.7z,.rar,.tar,.tgz" className="hidden" onChange={(e) => e.target.files?.[0] && start(e.target.files[0])} />
+          <input ref={inputRef} type="file" multiple accept=".zip,.7z,.rar,.tar,.tgz" className="hidden" onChange={(e) => (add(e.target.files), (e.target.value = ''))} />
           <div className="actions" style={{ justifyContent: 'center', marginTop: 14 }}>
             <Pill variant="p" icon={<CloudUpload />} onClick={() => inputRef.current?.click()}>
-              Choose a file
+              Choose files
             </Pill>
           </div>
         </>

@@ -1,0 +1,25 @@
+/* This fork's own looks, kept apart from index.css so updates from Renplay merge cleanly. */
+
+/* The drawer's button over the game is only its faint mark, with the same touch area. */
+.rp-pill.logo {
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+  background: none;
+  backdrop-filter: none;
+  opacity: 0.35;
+}
+.rp-pill.logo:hover,
+.rp-pill.logo:focus-visible {
+  opacity: 1;
+}
+
+/* The game page's sections fit a phone's width: no icons and less room around each name there. */
+@media (max-width: 440px) {
+  .seg[aria-label="Game page sections"] > button {
+    padding: 0 11px;
+  }
+  .seg[aria-label="Game page sections"] > button svg {
+    display: none;
+  }
+}

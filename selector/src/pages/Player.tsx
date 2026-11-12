@@ -425,9 +425,8 @@ export default function Player() {
           // HTML games often put their own menu in the top left (SugarCube's sidebar toggle).
           style={sandboxed ? { top: 10 + Math.max(insets.top, pad.top), right: 10 + insets.right } : { top: 10 + Math.max(insets.top, pad.top), left: 10 + insets.left }}
         >
-          <button type="button" className="rp-pill" onClick={openDrawer} aria-label="Open the player menu">
+          <button type="button" className="rp-pill logo" onClick={openDrawer} aria-label="Open the player menu">
             <span className="mark" aria-hidden="true" />
-            Renplay
           </button>
           {fsMode !== 'none' && !fullscreen && (
             <button type="button" className="rp-pill icon" onClick={() => void toggleFullscreen()} aria-label="Full screen">

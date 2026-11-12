@@ -17,6 +17,9 @@ release notes say what).
 
 ### Changed
 
+- The player's menu button over a game is only the faint Renplay mark, without its label or background, so it hides less of the game.
+- On a phone, the game page's sections (Play, Walkthroughs, Details, Manage) fit the screen without scrolling.
+- **Add games** takes several downloads at once and uploads them one after another. A zip of a game Renplay cannot install (a Unity, Godot or RPG Maker XP, VX or VX Ace PC build) is refused before anything is sent, with the reason.
 - An admin's upload installs as soon as it arrives, into the game it updates when there is one, keeping its mods. With Keep downloads off the upload is deleted once installed. A failed install keeps it to try again.
 - Uploads are much faster and no longer hang. A computer sends four pieces at once, an iPhone or iPad one at a time, which is fastest there. A piece that seems stuck is checked with the server first and only sent again when the server lacks it, so iPhone Safari, which reports progress rarely, no longer sends the same pieces over and over.
 - A game's **Manage** tab has one **Uninstall**: it deletes the game, its download (unless another game was installed from it), its mods and walkthrough, and removes it from the library. Your saves stay, so adding the game again continues where you left off.
@@ -29,6 +32,7 @@ release notes say what).
 - Games made on Windows that ask for a file in another case (data/Items.json for data/items.json) find it.
 - Games made with Ren'Py 6 that use its old themes show their frames and buttons.
 - RPG Maker MV and MZ games play from their PC download. Their windows and menus no longer stop the game, their music plays, encrypted pictures show when a plugin asks for the plain file, a phone gets the whole height, and on iPhone a game that looks for gamepads keeps running.
+- RPG Maker games whose plugins look for their save files on disk, as only the PC version can, start and find their saves.
 - RPG Maker games on a phone play their videos inside the game: animated scenes move in the game instead of opening full screen in the iPhone's own player and leaving a still picture. RPG Maker MV games on a phone play the music, sounds and movies of their PC download, which they used to look for in other formats and miss. A video the game turns down to nothing is silent on iPhone too, and Renplay's sound switch reaches videos while they play.
 
 ## [4.10.0] - 2026-11-11
