@@ -19,6 +19,10 @@ release notes say what).
 - Games made on Windows that ask for a file in another case (data/Items.json for data/items.json) find it.
 - Games made with Ren'Py 6 that use its old themes show their frames and buttons.
 
+### Fixed
+
+- RPG Maker MV and MZ games play from their PC download. Their windows and menus no longer stop the game, their music plays, encrypted pictures show when a plugin asks for the plain file, a phone gets the whole height, and on iPhone a game that looks for gamepads keeps running.
+
 ## [4.10.0] - 2026-11-11
 
 ### Added
