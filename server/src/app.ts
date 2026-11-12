@@ -168,7 +168,7 @@ export async function createApp(cfg: Config, opts: { startJobs?: boolean } = {})
       `Sign-in: ${signIn}`,
       `Adult games: ${content.level} for this installation`,
       `Catalog: ${cfg.catalogUrls.join(', ')}`,
-      `Save backups: ${backups.dir ? `daily to ${backups.dir}, the newest ${cfg.backupKeep} kept` : 'off'}`,
+      `Save backups: ${backups.dir ? `daily to ${backups.dir}, ${cfg.backupKeep > 0 ? `the newest ${cfg.backupKeep}` : 'every one'} kept` : 'off'}`,
       `Folders: games ${cfg.gamesDir}, downloads ${cfg.archivesDir}, data ${cfg.dataDir}`,
     ]
   }

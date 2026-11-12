@@ -122,9 +122,11 @@ export class SaveBackups {
       zip.end()
       await done
       await rename(temp, join(dir, name))
-      for (const old of (await this.files()).slice(this.cfg.backupKeep)) await rm(join(dir, old.name), { force: true })
-      const daily = (await this.libraryFiles()).filter((f) => !f.name.startsWith('library-before-')).sort((a, b) => b.name.localeCompare(a.name))
-      for (const old of daily.slice(this.cfg.backupKeep)) await rm(join(this.libraryDir, old.name), { force: true })
+      if (this.cfg.backupKeep > 0) {
+        for (const old of (await this.files()).slice(this.cfg.backupKeep)) await rm(join(dir, old.name), { force: true })
+        const daily = (await this.libraryFiles()).filter((f) => !f.name.startsWith('library-before-')).sort((a, b) => b.name.localeCompare(a.name))
+        for (const old of daily.slice(this.cfg.backupKeep)) await rm(join(this.libraryDir, old.name), { force: true })
+      }
       this.error = null
       log('backup', `Library database backed up: ${library}`)
       log('backup', `Saves backed up: ${name}, ${count} ${count === 1 ? 'file' : 'files'}, ${bytes((await stat(join(dir, name))).size)}`)

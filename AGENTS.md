@@ -225,7 +225,8 @@ browser ── nginx :8080 ─┬─ /                      library UI (selector
 - **Download links do not work from the server.** File hosts (Mediafire, Mega, Google Drive…)
   tie a direct link to the browser and IP that opened it, and official stores need the user's
   login, so "install from a link" failed for real links and was removed. Games arrive by upload or
-  through the archives folder.
+  through the archives folder. The one exception is a free game on itch.io (`library/itch.ts`): its
+  game page's own Download button asks for the file with the page's session, which a server can do.
 - **Ren'Py 7 games run on the Ren'Py 8 engine.** Ren'Py 8 loads their compiled scripts and
   compiles all their Python at load time, so a game that starts has no Python 2 syntax; what can
   still fail is Python 2 behaviour (xrange, iteritems, unicode). Once in a Lifetime (7.3.2)

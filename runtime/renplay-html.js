@@ -518,6 +518,30 @@
     }
   })
 
+  // A game that draws on a canvas of its own size (RPG Maker draws at its resolution) tells the
+  // player that size, so Fit, Fill and Stretch can shape the frame. A page that follows the
+  // window (Twine, or a canvas sized to the window) says nothing and keeps the whole area.
+  var reported = ''
+  function reportScreen() {
+    var dpr = window.devicePixelRatio || 1
+    var near = function (a, b) { return Math.abs(a - b) < 4 }
+    var follows = function (c) {
+      return (near(c.width, window.innerWidth) && near(c.height, window.innerHeight)) || (near(c.width, window.innerWidth * dpr) && near(c.height, window.innerHeight * dpr))
+    }
+    var best = null
+    var list = document.getElementsByTagName ? document.getElementsByTagName('canvas') : []
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i]
+      if (c.width >= 320 && c.height >= 200 && !follows(c) && (!best || c.width * c.height > best.width * best.height)) best = c
+    }
+    if (!best) return
+    var w = best.width
+    var h = best.height
+    if (reported === w + 'x' + h) return
+    reported = w + 'x' + h
+    post('info', { screen: [w, h] })
+  }
+
   // RPG Maker MZ in a phone's browser keeps a tenth of the height free for the browser's bars. A
   // game's frame has none, so it would only show a band of black: it takes the whole height.
   var fullHeight = false
@@ -539,11 +563,12 @@
   window.addEventListener('load', function () {
     post('ready')
     rpgMakerFullHeight()
-    // Engines set up their Graphics while they boot: try for a while.
+    // Engines set up their Graphics and size their canvas while they boot: look for a while.
     var looks = 0
     var look = setInterval(function () {
       rpgMakerFullHeight()
-      if (++looks >= 30 || fullHeight) clearInterval(look)
+      reportScreen()
+      if (++looks >= 30) clearInterval(look)
     }, 1000)
   })
 })()

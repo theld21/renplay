@@ -317,8 +317,10 @@ function UploadZone() {
     setUp({ file, sent: 0, handle, paused: false })
     handle.promise
       .then(() => {
-        toast(`${file.name} uploaded`, 'success')
+        toast(`${file.name} uploaded. It installs now, Activity shows how far it is.`, 'success')
         void qc.invalidateQueries({ queryKey: ['archives'] })
+        void qc.invalidateQueries({ queryKey: ['jobs'] })
+        void qc.invalidateQueries({ queryKey: ['games'] })
         setUp(null)
       })
       .catch((e) => {

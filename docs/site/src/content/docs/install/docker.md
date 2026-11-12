@@ -65,7 +65,7 @@ moved. Settings shows the folder in use.
 Deleting `/data` loses saves and the library. Deleting `/games` loses installed games and also
 its downloads unless you mounted them separately. Games can be rebuilt only while you keep the
 downloads. Deleting a download saves space, but reinstalling then needs that download again.
-Admins can use **Delete download** on a game's **Manage** tab without touching installed files or saves. **Settings → Storage → Show what uses space** lists every game's build, other builds and download, the engines, and folders that belong to no game, and frees space from there.
+Admins can use **Uninstall** on a game's **Manage** tab: it deletes the game, its download (unless another game was installed from it), its mods and walkthrough, and the library entry. Saves stay. **Settings → Storage → Show what uses space** lists every game's build, other builds and download, the engines, and folders that belong to no game, and frees space from there.
 
 The container can also run with a read-only root filesystem: it writes only to `/games`, `/data`,
 `/tmp` and the optional downloads mount. Add `read_only: true` and `tmpfs: [/tmp]` to the Compose service if you want that.

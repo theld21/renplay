@@ -106,8 +106,8 @@ Optionally mount a downloads folder at `/downloads`. Renplay uses it when it exi
 writable, or uses `ARCHIVES_DIR` when set. Without that mount it keeps using `/games/_archives`.
 Existing files are never moved. Settings shows which folder is in use. Deleting `/games` also
 loses downloads stored inside it. Games can be rebuilt only while their downloads are available.
-Admins can use **Delete download** on a game's Details tab to free space without touching saves.
-Reinstalling then needs the download again.
+With **Keep downloads** off, a download goes once its game installed. **Uninstall** on a game's
+Manage tab deletes the game and its download, never its saves.
 
 The image defaults to user `1000:1000`. You can use any non-root IDs with `--user 568:568`, or
 start as root with `--user 0:0 -e PUID=99 -e PGID=100`. The entrypoint drops root before starting

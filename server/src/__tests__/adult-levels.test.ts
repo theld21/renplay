@@ -285,7 +285,7 @@ describe('the levels on every route', () => {
     ['PUT /games/:id/cache', 'game'], ['GET /games/:id/recipe', 'game'], ['POST /games/:id/walkthroughs', 'game'], ['PUT /games/:id/walkthroughs/:file', 'game'], ['DELETE /games/:id/walkthroughs/:file', 'game'], ['DELETE /games/:id/art/uploads/:upload', 'game'],
     ['GET /archives', 'list'], ['POST /archives/inspect', 'tool'], ['POST /archives/hash', 'tool'], ['DELETE /archives', 'tool'],
     ['POST /imports', 'tool'], ['POST /uploads', 'person'], ['GET /uploads/:id', 'person'], ['PUT /uploads/:id', 'person'],
-    ['POST /uploads/:id/complete', 'person'], ['DELETE /uploads/:id', 'person'], ['GET /catalog', 'list'], ['POST /catalog/refresh', 'list'],
+    ['POST /uploads/:id/complete', 'person'], ['POST /uploads/:id/problem', 'person'], ['DELETE /uploads/:id', 'person'], ['GET /catalog', 'list'], ['POST /catalog/refresh', 'list'], ['POST /catalog/:id/download', 'tool'],
     // A person's saves of one game (the matrix below calls each under /api/saves/adult).
     ['GET /:id/boot', 'game'], ['GET /:id/raw', 'game'], ['PUT /:id/file', 'game'], ['DELETE /:id/file', 'game'], ['POST /:id/save-dir', 'game'],
     ['GET /:id', 'game'], ['POST /:id/sync', 'game'], ['POST /:id/sync/download', 'game'], ['PUT /:id/meta', 'game'], ['GET /:id/screenshot', 'game'],

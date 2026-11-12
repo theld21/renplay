@@ -1,13 +1,14 @@
-import { createWriteStream } from 'node:fs'
-import { mkdir, readFile, readdir, rm, stat, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { basename, join, relative } from 'node:path'
-import { pipeline } from 'node:stream/promises'
 import { Router } from 'express'
 import { KEEP_DOWNLOADS, archiveIdentity, publishUpload } from './archives.js'
 import { parseJson, type GameSource } from '../db.js'
 import { INSPECT_VERSION, enqueueImport, existingGame, inspectArchive } from '../pipeline/import.js'
 import type { Archive, ArchiveInfo, ArchivesResponse, InspectResponse, UploadStarted } from '../shared/api.js'
 import { exists, newId } from '../util/fsx.js'
+import { viewer } from '../accounts/context.js'
+import { Uploads, contiguous } from './uploads.js'
+import { log } from '../util/log.js'
 import { HttpError, cleanRelPath, isSlug, safeJoin } from '../util/paths.js'
 import type { Services } from '../services.js'
 
@@ -160,16 +161,10 @@ export function createLibraryRouter(deps: Services): Router {
 
   // ---- chunked uploads into the archives folder -------------------------------
 
-  const uploadMeta = (id: string) => join(cfg.uploadsDir, `${id}.json`)
-  const uploadPart = (id: string) => join(cfg.uploadsDir, `${id}.part`)
-  const readMeta = async (id: string): Promise<{ name: string; size: number }> => {
-    if (!/^u[a-z0-9]+$/.test(id)) throw new HttpError(400, 'Invalid upload id')
-    try {
-      return JSON.parse(await readFile(uploadMeta(id), 'utf-8'))
-    } catch {
-      throw new HttpError(404, 'Upload not found')
-    }
-  }
+  const uploads = new Uploads(cfg.uploadsDir)
+  const uploadMeta = uploads.meta
+  const uploadPart = uploads.part
+  const readMeta = (id: string) => uploads.read(id)
 
   router.post('/uploads', async (req, res) => {
     const name = basename(String(req.body?.name ?? '')).replace(/[^\w.() -]+/g, '_').slice(0, 180)
@@ -185,45 +180,53 @@ export function createLibraryRouter(deps: Services): Router {
 
   router.get('/uploads/:id', async (req, res) => {
     const meta = await readMeta(req.params.id)
-    const st = await stat(uploadPart(req.params.id)).catch(() => null)
-    res.json({ ...meta, received: st?.size ?? 0 })
+    res.json({ name: meta.name, size: meta.size, received: contiguous(meta.ranges), ranges: meta.ranges })
   })
 
+  // A chunk at any offset: browsers send a few at once, in any order.
   router.put('/uploads/:id', async (req, res) => {
     const id = req.params.id
     const meta = await readMeta(id)
     const offset = Number(req.query['offset'])
-    const st = await stat(uploadPart(id))
-    if (offset !== st.size) {
-      res.status(409).json({ error: 'Offset mismatch', received: st.size })
-      return
-    }
     const len = Number(req.header('content-length'))
-    if (!Number.isFinite(len) || len > CHUNK + 1024 || offset + len > meta.size) throw new HttpError(400, 'Invalid chunk')
-    await pipeline(req, createWriteStream(uploadPart(id), { flags: 'r+', start: offset }))
-    const after = await stat(uploadPart(id))
-    res.json({ received: after.size })
+    if (!Number.isInteger(offset) || offset < 0 || !Number.isFinite(len) || len <= 0 || len > CHUNK + 1024 || offset + len > meta.size) throw new HttpError(400, 'Invalid chunk')
+    const ranges = await uploads.write(id, offset, len, req)
+    res.json({ received: contiguous(ranges), ranges })
+  })
+
+  // What the browser could not do with an upload (a phone that cannot read the file), for the log.
+  router.post('/uploads/:id/problem', async (req, res) => {
+    const meta = await readMeta(req.params.id)
+    const message = typeof req.body?.message === 'string' ? req.body.message.slice(0, 300).replace(/[\r\n]+/g, ' ') : 'unknown'
+    log('upload', `${meta.name}: ${message}`, 'warn')
+    res.status(204).end()
   })
 
   router.post('/uploads/:id/complete', async (req, res) => {
     const id = req.params.id
     const meta = await readMeta(id)
-    const st = await stat(uploadPart(id))
-    if (st.size !== meta.size) throw new HttpError(409, `Upload incomplete (${st.size} of ${meta.size} bytes)`)
+    const have = contiguous(meta.ranges)
+    if (have !== meta.size) throw new HttpError(409, `Upload incomplete (${have} of ${meta.size} bytes)`)
     await mkdir(cfg.archivesDir, { recursive: true })
     let dest = join(cfg.archivesDir, meta.name)
     let i = 1
     while (await exists(dest)) dest = join(cfg.archivesDir, meta.name.replace(/(\.[^.]+)?$/, `-${++i}$1`))
     await publishUpload(uploadPart(id), dest)
-    db.markUploadedArchive(relative(cfg.archivesDir, dest), archiveIdentity(await stat(dest)))
+    const path = relative(cfg.archivesDir, dest)
+    db.markUploadedArchive(path, archiveIdentity(await stat(dest)))
     await unlink(uploadMeta(id)).catch(() => {})
-    res.json({ path: relative(cfg.archivesDir, dest) })
+    uploads.forget(id)
+    // An admin's upload installs at once: into the game it updates, keeping its mods. With Keep
+    // downloads off the upload is deleted once installed. A failed install keeps it to try again.
+    const jobId = viewer()?.user.role === 'admin' ? enqueueImport(jobs, { source: { kind: 'archive', path }, reapplyMods: true }) : null
+    res.json({ path, jobId })
   })
 
   router.delete('/uploads/:id', async (req, res) => {
     await readMeta(req.params.id)
     await rm(uploadPart(req.params.id), { force: true })
     await rm(uploadMeta(req.params.id), { force: true })
+    uploads.forget(req.params.id)
     res.json({ ok: true })
   })
 

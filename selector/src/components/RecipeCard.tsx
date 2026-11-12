@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
-import { Check, ExternalLink, Plus } from 'lucide-react'
+import { Check, Download, ExternalLink, Plus } from 'lucide-react'
 import { Frame } from '../lantern/art'
 import { Pill, TagPill } from '../lantern/controls'
-import { BetaBadge } from '../lantern/ui'
+import { BetaBadge, useToast } from '../lantern/ui'
 import type { CatalogGame } from '@shared/api'
+import { downloadable } from '@shared/recipe'
+import { post } from '../lib/api'
 import { stateLabel, gameTags } from '../lib/tags'
 import { recipeLinks } from '../lib/links'
+import { useAuth } from '../lib/auth'
 import { useCatalog } from '../lib/queries'
 
 /** A catalog recipe, as the sheet a catalog tile opens: what it is, where to get it, how it installs. */
@@ -16,6 +19,10 @@ export default function RecipeCard({ recipe: r }: { recipe: CatalogGame }) {
   const links = recipeLinks(r.links)
   const tags = gameTags(r, catalog?.vocabulary ?? {})
   const primary = tags.filter((t) => t.group !== 'content')
+  const toast = useToast()
+  const admin = useAuth().data?.user.role === 'admin'
+  // A free game on itch.io: the server downloads the tested release and installs it.
+  const fetchable = !r.local && admin ? downloadable(r) : null
   return (
     <div>
       <div className="row" style={{ alignItems: 'flex-start', gap: 14 }}>
@@ -77,6 +84,22 @@ export default function RecipeCard({ recipe: r }: { recipe: CatalogGame }) {
         {r.local ? (
           <Pill variant="p" size="sm" to={`/game/${r.local.id}`}>
             Open in your library
+          </Pill>
+        ) : fetchable ? (
+          <Pill
+            variant="p"
+            size="sm"
+            icon={<Download />}
+            onClick={async () => {
+              try {
+                await post(`/api/catalog/${r.id}/download`)
+                toast(`Downloading ${r.title} ${fetchable.release.version} from itch.io. It installs by itself, Activity shows how far it is.`)
+              } catch (e) {
+                toast((e as Error).message, 'error')
+              }
+            }}
+          >
+            Download and install
           </Pill>
         ) : (
           <Pill variant="p" size="sm" to="/add" icon={<Plus />}>

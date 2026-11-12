@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+import { frameRect } from '../../../selector/src/lib/display.js'
 import { htmlRuntime } from './runtime-browser.js'
 
 // The game's frame has an opaque origin: its own files count as another origin's.
@@ -118,4 +119,36 @@ it('lets RPG Maker on a phone use the frame\'s whole height', () => {
   page.fire('load')
   expect(page.window.Graphics._stretchHeight()).toBe(390)
   expect(updated).toEqual(['scale for 390', 'elements'])
+})
+
+it('tells the player the size a canvas game draws at, and nothing for a page that follows the window', () => {
+  const canvases: Array<{ width: number; height: number }> = []
+  const page = htmlRuntime(1, (w) => {
+    Object.assign(w, { innerWidth: 390, innerHeight: 844, devicePixelRatio: 3 })
+    w.document.getElementsByTagName = (tag: string) => (tag === 'canvas' ? canvases : [])
+  })
+  const screens = () => page.post.mock.calls.map(([m]) => m).filter((m) => m.type === 'renplay:info').map((m) => m.screen)
+  const before = page.intervals.length
+  page.fire('load')
+  const added = page.intervals.slice(before)
+  const look = () => added.forEach((fn) => fn())
+  // A page whose canvas follows the window, then RPG Maker's FPS meter and its game canvas.
+  canvases.push({ width: 1170, height: 2532 })
+  look()
+  canvases.push({ width: 84, height: 30 }, { width: 1280, height: 720 })
+  look()
+  look()
+  expect(screens()).toEqual([[1280, 720]])
+})
+
+it('stretches the frame over the whole area, and keeps fit and fill as they were', () => {
+  // A 16:9 game on a long phone in landscape.
+  expect(frameRect(844, 390, [1280, 720], 'fit')).toEqual({ width: 693, height: 390, left: 76, top: 0, scaleX: 1, scaleY: 1 })
+  const stretched = frameRect(844, 390, [1280, 720], 'stretch')
+  expect(stretched).toMatchObject({ width: 693, height: 390, left: 0, top: 0, scaleY: 1 })
+  expect(stretched.width * stretched.scaleX).toBeCloseTo(844)
+  // An iPad's 4:3: Fill crops the sides, Stretch makes the game taller.
+  expect(frameRect(1024, 768, [1280, 720], 'fill')).toMatchObject({ width: 1365, height: 768, left: -170, top: 0 })
+  expect(frameRect(1024, 768, [1280, 720], 'stretch')).toMatchObject({ width: 1024, height: 576, scaleX: 1 })
+  expect(frameRect(1024, 768, null, 'stretch')).toEqual({ width: 1024, height: 768, left: 0, top: 0, scaleX: 1, scaleY: 1 })
 })

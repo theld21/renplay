@@ -1,5 +1,5 @@
 import { isAppleTouch, isMacComputer, isStandalone } from './platform'
-type FitMode = 'fit' | 'fill'
+type FitMode = 'fit' | 'fill' | 'stretch'
 
 export interface DisplayPrefs {
   fit: FitMode
@@ -90,21 +90,28 @@ export function fullscreenCoversNotch(): boolean {
  * Fit: the frame has the game's own shape, centred, so Ren'Py fills it edge to edge and the bars
  * are the player's, never a second set drawn inside the game. Fill: on a screen narrower than the
  * game the sides are cropped. It never crops the top or bottom, where games keep their dialogue
- * and buttons: on a wider screen it fits instead.
+ * and buttons: on a wider screen it fits instead. Stretch: the whole area, nothing cropped, the
+ * game a little wider or taller (on a long phone a 16:9 game is about a fifth wider).
  */
 export function frameRect(
   cw: number,
   ch: number,
   screenSize: [number, number] | null,
   mode: FitMode,
-): { width: number; height: number; left: number; top: number } {
-  if (!screenSize || !cw || !ch) return { width: cw, height: ch, left: 0, top: 0 }
+): { width: number; height: number; left: number; top: number; scaleX: number; scaleY: number } {
+  if (!screenSize || !cw || !ch) return { width: cw, height: ch, left: 0, top: 0, scaleX: 1, scaleY: 1 }
   const ar = screenSize[0] / screenSize[1]
+  // Stretch: the game draws at its own shape, then the frame is scaled to the whole area. Engines
+  // keep their shape inside a frame of another shape, so only scaling the frame fills the screen.
+  if (mode === 'stretch') {
+    const fit = frameRect(cw, ch, screenSize, 'fit')
+    return { width: fit.width, height: fit.height, left: 0, top: 0, scaleX: cw / fit.width, scaleY: ch / fit.height }
+  }
   if (mode === 'fill' && cw / ch < ar) {
     const width = Math.round(ch * ar)
-    return { width, height: ch, left: Math.round((cw - width) / 2), top: 0 }
+    return { width, height: ch, left: Math.round((cw - width) / 2), top: 0, scaleX: 1, scaleY: 1 }
   }
   const width = Math.min(cw, Math.round(ch * ar))
   const height = Math.min(ch, Math.round(width / ar))
-  return { width, height, left: Math.round((cw - width) / 2), top: Math.round((ch - height) / 2) }
+  return { width, height, left: Math.round((cw - width) / 2), top: Math.round((ch - height) / 2), scaleX: 1, scaleY: 1 }
 }

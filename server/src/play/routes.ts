@@ -131,7 +131,7 @@ export function createPlayRouter(s: Services): Router {
       // Sandbox every pack response, independent of MIME, suffixes or browser sniffing.
       // This follows direct navigations, secondary pages and popups too.
       // Never allow-same-origin or popup escape: game scripts must not gain account cookies.
-      res.setHeader('Content-Security-Policy', `sandbox allow-scripts allow-modals allow-pointer-lock allow-popups allow-downloads allow-forms; ${FRAME_ANCESTORS}`)
+      res.setHeader('Content-Security-Policy', `sandbox allow-scripts allow-modals allow-pointer-lock allow-popups allow-downloads allow-forms allow-orientation-lock; ${FRAME_ANCESTORS}`)
     }
     if (/\.html?$/i.test(name)) {
       const game = db.getGame(id)

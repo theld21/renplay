@@ -3,9 +3,10 @@ import { Router } from 'express'
 import YAML from 'yaml'
 import { viewer } from '../accounts/context.js'
 import { parseJson, type GameSource } from '../db.js'
-import { installedRelease } from '../shared/recipe.js'
+import { downloadable, installedRelease } from '../shared/recipe.js'
 import type { Services } from '../services.js'
 import { exists } from '../util/fsx.js'
+import { HttpError } from '../util/paths.js'
 import type { CatalogGame, CatalogResponse, DraftRecipe } from '../shared/api.js'
 
 /** The catalog's recipe schema, for editors that validate YAML (yaml-language-server). */
@@ -29,6 +30,15 @@ export function createCatalogRouter(s: Services): Router {
         return { ...recipe, fromYourRecipes: _origin === 'local' || undefined, art: catalog.recipeArt(r), local: local ? { id: local.id, status: local.status, version: installedRelease(r, local.version, parseJson<GameSource>(local.source, {}).archive)?.version ?? local.version, detectedVersion: local.version } : null }
       }),
     } satisfies CatalogResponse)
+  })
+
+  // A free catalog game on itch.io: download its tested release and install it (admins).
+  router.post('/catalog/:id/download', (req, res) => {
+    const recipe = catalog.recipe(req.params.id)
+    if (!recipe) throw new HttpError(404, 'Game not found')
+    if (!downloadable(recipe)) throw new HttpError(409, 'This game has no free download on itch.io that the catalog tested. Download it from the developer and add it under Add games.')
+    const busy = db.listJobs(200).find((j) => j.type === 'catalog-download' && ['queued', 'running', 'paused'].includes(j.status) && parseJson<{ recipeId?: string }>(j.params, {}).recipeId === recipe.id)
+    res.json({ jobId: busy?.id ?? jobs.enqueue('catalog-download', '', { recipeId: recipe.id }) })
   })
 
   router.post('/catalog/refresh', async (_req, res) => {

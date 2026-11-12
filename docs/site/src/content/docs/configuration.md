@@ -236,11 +236,11 @@ Images converted in parallel during an install. `0` picks the CPU count.
 
 <div class="config-default">
 
-Default: `20`
+Default: `0`
 
 </div>
 
-Earlier versions kept per save file.
+Earlier versions kept per save file. `0` keeps every version.
 
 </div>
 
@@ -278,11 +278,11 @@ The Ren’Py sync server for Sync codes, which an admin turns on in Settings. Ch
 
 <div class="config-default">
 
-Default: `14`
+Default: `0`
 
 </div>
 
-Daily save zips and daily library database copies kept, counted separately. Older daily copies are deleted. Copies before numbered database migrations are kept until you remove them.
+Daily save zips and daily library database copies kept, counted separately. Older daily copies are deleted. `0` keeps every copy. Copies before numbered database migrations are kept until you remove them.
 
 </div>
 

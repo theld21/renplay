@@ -51,12 +51,28 @@ export function createGamesRouter(deps: Services): Router {
     res.json({ game: await toGame(get(req), deps) })
   })
 
-  /** Uninstalls (files go, saves and mods stay); `forget=1` also removes the library entry. */
+  /**
+   * Uninstalls (files go, saves and mods stay); `forget=1` also removes the library entry, and
+   * `clean=1` with it deletes the game's download (unless another game was installed from it) and
+   * its mods. Saves always stay: adding the game again continues where it was left.
+   */
   router.delete('/games/:id', async (req, res) => {
     const g = get(req)
     if (jobs.activeFor(g.id)) throw new HttpError(409, 'A job is running for this game')
+    const forget = req.query['forget'] === '1'
+    const archive = forget && req.query['clean'] === '1' ? parseJson<GameSource>(g.source, {}).archive : undefined
+    const ownDownload = !!archive && !db.allGames().some((o) => o.id !== g.id && parseJson<GameSource>(o.source, {}).archive === archive)
+    if (ownDownload && jobs.isBusy()) throw new HttpError(409, 'Wait for install jobs to finish before uninstalling this game')
     await builds.remove(g.id)
-    if (req.query['forget'] === '1') {
+    if (forget && req.query['clean'] === '1') {
+      if (ownDownload) {
+        const rel = cleanRelPath(archive)
+        await unlink(safeJoin(cfg.archivesDir, rel)).catch(() => {})
+        db.deleteArchive(rel)
+      }
+      await deps.overlays.removeAll(g.id)
+    }
+    if (forget) {
       for (const w of db.walkthroughs(g.id)) await unlink(join(cfg.walkthroughsDir, w.file)).catch(() => {})
       deps.art.forgetGame(g.id)
       db.raw.prepare('DELETE FROM walkthroughs WHERE game = ?').run(g.id)

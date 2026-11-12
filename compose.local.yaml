@@ -1,0 +1,26 @@
+# Local Renplay built from this checkout, for one machine.
+#
+#   mkdir -p games data
+#   docker compose -f compose.local.yaml up -d --build
+#
+# Host networking: the library listens on :8080 directly (firewalld on some hosts blocks
+# Docker's bridge network). The server's internal port 3000 is bound to 127.0.0.1 only.
+services:
+  renplay:
+    build: .
+    image: renplay:local
+    container_name: renplay-local
+    restart: unless-stopped
+    network_mode: host
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      RENPLAY_TELEMETRY: "off"
+      # Original downloads are kept elsewhere: an upload (or a catalog download) is deleted once
+      # its game installed. A failed install keeps it. Every save version and daily save backup
+      # is kept.
+      RENPLAY_KEEP_DOWNLOADS: "false"
+      RENPLAY_SAVE_HISTORY: "0"
+      RENPLAY_BACKUP_KEEP: "0"
+    volumes:
+      - ./games:/games
+      - ./data:/data
