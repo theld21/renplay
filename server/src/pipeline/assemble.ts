@@ -27,6 +27,8 @@ export interface AssembleOptions {
   placeholders: Map<string, Placeholder>
   /** Files (relative to game/) supplied separately; they go into game.zip and never stream. */
   extra?: Map<string, Buffer>
+  /** Adds the Python 2 script: games made with Ren'Py 7 and older, or of no known version. */
+  python2?: boolean
   ctx: JobContext
 }
 
@@ -85,7 +87,7 @@ export async function assemble(o: AssembleOptions): Promise<AssembleResult> {
     zip.addBuffer(data, `game/${rel}`, { compress: !STORED.test(rel) })
     zipped++
   }
-  for (const [path, text] of [[PY2_COMPAT_PATH, PY2_COMPAT], [WEB_COMPAT_PATH, WEB_COMPAT]] as const) {
+  for (const [path, text] of [...(o.python2 ? [[PY2_COMPAT_PATH, PY2_COMPAT] as const] : []), [WEB_COMPAT_PATH, WEB_COMPAT] as const]) {
     if (!o.zipPack.index.has(path) && !extra.has(path)) zip.addBuffer(Buffer.from(text, 'utf-8'), `game/${path}`)
   }
 

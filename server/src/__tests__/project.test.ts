@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -77,7 +77,7 @@ describe('project extraction memory', () => {
     }
   })
 
-  it('gives a Ren\'Py 6 game the theme pictures of its own common folder, unless it has its own', async () => {
+  it('gives a Ren\'Py 6 game the theme pictures of its download, unless it has its own', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'project-common-'))
     const assets = new PackWriter(join(dir, 'assets.pack'))
     const zip = new PackWriter(join(dir, 'zip.pack'))
@@ -85,21 +85,22 @@ describe('project extraction memory', () => {
     const file = (path: string, text: string) => ({ path, size: text.length, seekable: false, open: async () => Readable.from([Buffer.from(text)]) })
     const src: ArchiveSource = {
       kind: 'zip', close() {}, entries: [
-        file('Be A Man/game/script.rpyc', 'script'),
-        file('Be A Man/common/_theme_glow/g_box.png', 'glow box'),
-        file('Be A Man/common/_roundrect/rr12g.png', 'shipped'),
-        file('Be A Man/game/_roundrect/rr12g.png', 'own'),
-        file('Be A Man/common/00library.rpy', 'engine script'),
+        file('OldGame-1.0-pc/game/script.rpyc', 'script'),
+        file('OldGame-1.0-pc/common/_theme_glow/g_box.png', 'shipped'),
+        file('OldGame-1.0-pc/common/_roundrect/rr12g.png', 'shipped'),
+        file('OldGame-1.0-pc/game/_roundrect/rr12g.png', 'own'),
+        file('OldGame-1.0-pc/common/00library.rpy', 'engine script'),
       ],
     }
     try {
-      await extractProject(src, 'Be A Man/', dir, defaultImagePolicy(), 4, ctx, [], { assets, zip, skip: new Set() })
+      await extractProject(src, 'OldGame-1.0-pc/', dir, defaultImagePolicy(), 4, ctx, [], { assets, zip, skip: new Set() })
       await Promise.all([assets.close(), zip.close()])
-      const files = [...zip.index.keys(), ...assets.index.keys()].sort()
-      expect(files).toEqual(['_roundrect/rr12g.png', '_theme_glow/g_box.png', 'script.rpyc'])
-      const [offset, size] = zip.index.get('_roundrect/rr12g.png') ?? assets.index.get('_roundrect/rr12g.png')!
-      expect(size).toBe(3)
-      expect(offset).toBeGreaterThanOrEqual(0)
+      const read = (name: string) => {
+        const [pack, at] = zip.index.has(name) ? [zip, zip.index.get(name)!] : [assets, assets.index.get(name)!]
+        return readFileSync(pack.path).subarray(at[0], at[0] + at[1]).toString()
+      }
+      expect([...zip.index.keys(), ...assets.index.keys()].sort()).toEqual(['_roundrect/rr12g.png', '_theme_glow/g_box.png', 'script.rpyc'])
+      expect([read('_theme_glow/g_box.png'), read('_roundrect/rr12g.png')]).toEqual(['shipped', 'own'])
     } finally {
       process.mockRestore()
       rmSync(dir, { recursive: true, force: true })

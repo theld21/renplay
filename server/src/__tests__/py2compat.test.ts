@@ -1,26 +1,47 @@
 import { execFileSync } from 'node:child_process'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PY2_COMPAT } from '../pipeline/py2compat.js'
+
+// Python 2.7 (Ren'Py 7.8.7's) pickled the syntax tree of this code, as Ren'Py 6 stored the Python
+// of old-style screens in .rpyc files:
+//
+//   items = [1, 2, 3]; first = items[0]; pair = items[0:2]; grid = {}; grid[1, 2] = 5
+//   def f(a, b=2): return a + b
+//   def g(*args, **kwargs): return len(args) + len(kwargs)
+//   try: raise ValueError, "bad"
+//   except ValueError, e: message = str(e)
+//   try: x = 1
+//   finally: done = True
+//   exec "y = 2"
+//   print >>out, "printed", first,
+const OLD_TREE = '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'
 
 // Runs Renplay's `python early` block the way the engine does: Ren'Py's py_compile parses the
 // code, hands the tree to renpy.python.wrap_node and compiles it, and PyExpr carries the
 // Python version the code was written for (2 when it comes from an old game's .rpyc).
+// renpy-compat-pickle.py is Ren'Py 8.5.3's renpy/compat/pickle.py, which loads .rpyc files.
 function run(program: string): string {
   const block = PY2_COMPAT.split('\n').slice(PY2_COMPAT.split('\n').indexOf('python early:') + 1)
   const body = block.map((line) => line.replace(/^ {4}/, '')).join('\n')
   const script = String.raw`
 import ast, sys, types
+sys.modules["renpy"] = types.ModuleType("renpy")
+compat_pickle = types.ModuleType("renpy.compat.pickle")
+exec(open(sys.argv[1]).read(), compat_pickle.__dict__)
 
 class PyExpr(str):
-    def __new__(cls, s, filename="game/script.rpy", linenumber=1, py=2):
+    def __new__(cls, s, filename="game/script.rpy", linenumber=1, py=2, hashcode=None, column=0):
         rv = str.__new__(cls, s)
-        rv.filename, rv.linenumber, rv.py = filename, linenumber, py
+        rv.filename, rv.linenumber, rv.py, rv.column = filename, linenumber, py, column
         return rv
 
 python = types.ModuleType("renpy.python")
 python.wrap_node = ast.NodeTransformer()
 
 def py_compile(source, mode, filename="<none>", lineno=1, ast_node=False, cache=True, py=None, hashcode=None, column=0):
+    if isinstance(source, ast.Module):
+        return compile(source, filename, mode)
     if isinstance(source, PyExpr):
         filename = source.filename
     tree = compile(str(source), filename, "exec" if mode == "hide" else mode, ast.PyCF_ONLY_AST)
@@ -41,15 +62,19 @@ importer.RenpyImporter = RenpyImporter
 store = types.ModuleType("store")
 sys.modules["store"] = store
 # In game code renpy is renpy.exports; the engine's modules are only in sys.modules.
-sys.modules.update({"renpy.python": python, "renpy.pyanalysis": pyanalysis, "renpy.importer": importer})
+sys.modules.update({"renpy.python": python, "renpy.pyanalysis": pyanalysis, "renpy.importer": importer, "renpy.compat.pickle": compat_pickle})
 renpy = types.SimpleNamespace(store=store)
+# The store's dict, list and object are Ren'Py's revertable kinds, as in the engine.
+class RevertableDict(dict): pass
+class RevertableList(list): pass
+class RevertableObject(object): pass
 `
-    + `\nexec(${JSON.stringify(body)}, {"renpy": renpy})\n`
+    + `\nexec(${JSON.stringify(body)}, {"renpy": renpy, "dict": RevertableDict, "list": RevertableList, "object": RevertableObject})\n`
     + String.raw`
 def run(code, py=2):
     exec(python.py_compile(PyExpr(code, py=py), "exec"), store.__dict__)
 ` + program
-  return execFileSync('python3', ['-I', '-c', script], { encoding: 'utf8' }).trim()
+  return execFileSync('python3', ['-I', '-c', script, join(import.meta.dirname, 'renpy-compat-pickle.py')], { encoding: 'utf8' }).trim()
 }
 
 describe('Python 2 compatibility script', () => {
@@ -110,6 +135,7 @@ checks = [
     ("next_method", iter([7]).next() == 7),
     ("sort_cmp", sorted([3, 1, 2], cmp=lambda a, b: b - a) == [3, 2, 1]),
     ("list_sort_cmp", (lambda l: (l.sort(cmp=lambda a, b: a - b), l)[1])([2, 1]) == [1, 2]),
+    ("plain_list_sort", (lambda l: (l.sort(cmp=lambda a, b: cmp(b, a)), l)[1])("a c b".split()) == ["c", "b", "a"]),
     ("string", "a" in string.letters and string.join(["a", "b"], "-") == "a-b" and string.upper("a") == "A"),
     ("maxint", sys.maxint > 0),
     ("izip", list(itertools.izip([1], [2])) == [(1, 2)]),
@@ -181,4 +207,31 @@ module.show()
 `)
     expect(out).toBe('half 3 True a abc')
   })
+
+  it('loads and runs the Python 2 syntax trees of old-style screens', () => {
+    const out = run(String.raw`
+import base64, io
+tree = compat_pickle.loads(base64.b64decode(${JSON.stringify(OLD_TREE)}))
+out = io.StringIO()
+scope = {"out": out}
+exec(python.py_compile(tree, "exec", "game/screens.rpy", py=2), scope)
+print(scope["first"], scope["pair"], scope["grid"], scope["f"](1), scope["g"](1, k=2), scope["message"], scope["done"], scope["y"], repr(out.getvalue()))
+`)
+    expect(out).toBe("1 [1, 2] {(1, 2): 5} 3 2 bad True 2 'printed 1 '")
+  })
+
+  it('stays off for a Ren\'Py 8 game whose statements Ren\'Py also tries as expressions', () => {
+    // Ren'Py compiles every statement as an expression too, and ignores the errors.
+    const out = run(String.raw`
+try:
+    python.py_compile(PyExpr("x = 1", py=3), "eval")
+except SyntaxError:
+    pass
+module = types.ModuleType("helpers")
+exec(RenpyImporter().source_to_code(b"half = 7 / 2\nkeys = type({}.keys()).__name__\n", "game/helpers.py"), module.__dict__)
+print(module.half, module.keys, hasattr(store, "long"))
+`)
+    expect(out).toBe('3.5 dict_keys False')
+  })
 })
+

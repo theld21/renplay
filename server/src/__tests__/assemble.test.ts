@@ -58,6 +58,7 @@ describe('assemble', () => {
       rules,
       placeholders,
       extra: new Map([['zz_patch.rpy', Buffer.from('init: pass')]]),
+      python2: true,
       ctx,
     })
     expect(res.streamed.files).toBe(4)
@@ -148,4 +149,21 @@ describe('assemble', () => {
     expect(ex('old/x.png')).toBe(true)
     expect(ex('images/a.png')).toBe(false)
   })
+})
+
+it('finds a game file asked for in another case, as Windows does', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pack-case-'))
+  try {
+    const pack = new PackWriter(join(dir, 'assets.pack'))
+    await pack.add('data/items.json', Buffer.from('[null]'))
+    await pack.add('data/Items.json.bak', Buffer.from('old'))
+    await pack.close()
+    await writeIndex(join(dir, 'assets.json'), pack.index)
+    const reader = new PackReader(join(dir, 'assets.pack'), join(dir, 'assets.json'))
+    expect((await reader.read('data/Items.json'))?.toString()).toBe('[null]')
+    expect((await reader.read('DATA/ITEMS.JSON'))?.toString()).toBe('[null]')
+    expect(await reader.entry('data/Weapons.json')).toBeNull()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

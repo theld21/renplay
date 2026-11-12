@@ -53,20 +53,23 @@ export interface ImportDeps {
   content: ContentMode
 }
 
+/** Save folders of the projects the Ren'Py SDK ships, which games made from them can keep. */
+const SAMPLE_SAVE_DIR = /^(the_question|tutorial)(-\d+)?$/i
+
 /**
  * The library entry an install goes into: the one asked for, the one linked to the matched
  * recipe, or one with the same save folder. Seasons and spin-offs often share a save folder (that
  * is how a sequel reads the earlier saves), so a game already linked to another recipe is never
  * taken over through its save folder. Games made from a Ren'Py sample can keep its save folder
- * (Leave keeps "the_question-7"): there the title must match too, or one game replaces another.
+ * ("the_question-7"): there the title must match too, or one game replaces another.
  */
 export function existingGame(db: Db, game: string | undefined, recipeId: string | undefined, saveDir: string | undefined, title?: string): GameRow | null {
   if (game) return db.getGame(game)
   const byRecipe = recipeId ? db.gameByRecipe(recipeId) : null
   if (byRecipe) return byRecipe
   if (!saveDir) return null
-  const sample = /^(the_question|tutorial)(-\d+)?$/i.test(saveDir)
-  const sameTitle = (g: GameRow) => !sample || !title || !g.title || slugify(g.title) === slugify(title)
+  // Without both titles a sample's folder matches nothing: a second entry beats replacing a game.
+  const sameTitle = (g: GameRow) => !SAMPLE_SAVE_DIR.test(saveDir) || (!!title && !!g.title && slugify(g.title) === slugify(title))
   return db.gamesBySaveDir(saveDir).find((g) => (!recipeId || !g.recipe_id || g.recipe_id === recipeId) && sameTitle(g)) ?? null
 }
 
@@ -153,7 +156,7 @@ async function install(ctx: JobContext<ImportParams>, deps: ImportDeps): Promise
     const engine = await engines.pick(p.engine ?? settings.engine, gameRenpy ?? match?.release?.madeWith)
     ctx.log(`Game made with Ren'Py ${gameRenpy ?? 'unknown'}; building with engine ${engine}`)
     if (gameRenpy && Number(gameRenpy.split('.')[0]) < Number(engine.split('.')[0])) {
-      ctx.log(`Made with an older Ren'Py: its Python 2 code is run the way Python 2 did on the newer engine. Report problems to the catalog.`)
+      ctx.log(`Made with an older Ren'Py: its Python 2 code runs as it did under Python 2. Report problems to the catalog.`)
     }
     const engineDir = await engines.ensure(engine, ctx)
 
@@ -227,6 +230,7 @@ async function install(ctx: JobContext<ImportParams>, deps: ImportDeps): Promise
       rules,
       placeholders: res.placeholders,
       extra,
+      python2: !gameRenpy || Number(gameRenpy.split('.')[0]) < 8,
       ctx,
     })
     await writeIndex(join(staging, 'assets.json'), assets.index)

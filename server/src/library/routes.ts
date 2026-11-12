@@ -70,6 +70,7 @@ export function createLibraryRouter(deps: Services): Router {
         // Off: an adult game does not exist, so its download does not appear in Add games.
         if (match && deps.content.hidesRecipe(match.recipe.nsfw)) return null
         if (hiddenSources.has(f.rel) && !installedBy.has(f.rel)) return null
+        const existing = existingGame(db, undefined, match?.recipe.id, info?.saveDir, info?.title)
         return {
           path: f.rel,
           name: basename(f.rel),
@@ -89,7 +90,7 @@ export function createLibraryRouter(deps: Services): Router {
                 nsfw: match.recipe.nsfw ?? false,
               }
             : null,
-          existingGame: [existingGame(db, undefined, match?.recipe.id, info?.saveDir, info?.title)].find((g) => g && !deps.content.hides(g))?.id ?? null,
+          existingGame: existing && !deps.content.hides(existing) ? existing.id : null,
         }
       }).filter((a) => a !== null),
     } satisfies ArchivesResponse)

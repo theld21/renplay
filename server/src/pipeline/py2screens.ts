@@ -2,18 +2,16 @@
  * Part of the script py2compat.ts adds to every build: old-style screens of games made with
  * Ren'Py 6.17 and older keep their Python as Python 2 syntax trees in the .rpyc files. Ren'Py 8
  * converts most of their nodes as it loads them (renpy.compat.pickle). This adds the ones it lacks
- * (Index, which Time Labyrinth's screens use, ExtSlice, Ellipsis, Print, Exec, TryExcept,
- * TryFinally, Python 2 Raise and ExceptHandler), keeps `arguments` without `*args` valid, and fills
- * the fields Python 3 requires. Only syntax trees from old .rpyc files go through it.
+ * (Index, ExtSlice, Ellipsis, Print, Exec, TryExcept, TryFinally, Python 2 Raise and
+ * ExceptHandler), keeps `arguments` without `*args` valid, and fills the fields Python 3 requires.
+ * Only syntax trees from old .rpyc files go through it.
  */
 export const OLD_SCREENS = String.raw`
     def _renplay_old_screens():
         import ast
         import sys
+        from builtins import dict, list, object
 
-        # Ren'Py 6.17 and older kept the Python of old-style screens as Python 2 syntax trees, and
-        # Ren'Py 8 converts most of their nodes as it loads them (renpy.compat.pickle). These are
-        # the ones it lacks (Time Labyrinth's screens use Index), and Python 3's required fields.
         # In game code renpy is renpy.exports: the engine's loader comes from sys.modules.
         old_pickle = sys.modules.get("renpy.compat.pickle")
         rewrite = getattr(old_pickle, "REWRITE_NODES", None)
@@ -48,11 +46,13 @@ export const OLD_SCREENS = String.raw`
                      "names", "type_params", "generators", "ifs", "keys", "values", "ops", "comparators", "type_ignores",
                      "kw_defaults", "defaults", "posonlyargs", "kwonlyargs", "bases"}
 
+            numbers = {"is_async": 0, "level": 0, "conversion": -1}
+
             def complete(tree):
                 for node in ast.walk(tree):
                     for field in node._fields:
                         if not hasattr(node, field):
-                            setattr(node, field, [] if field in lists else None)
+                            setattr(node, field, [] if field in lists else numbers.get(field))
                 ast.fix_missing_locations(tree)
                 # Python 2 trees have no end positions: an end before the start is refused.
                 for node in ast.walk(tree):

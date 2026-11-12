@@ -4,23 +4,6 @@ import { join } from 'node:path'
 import { expect, it } from 'vitest'
 import { PackReader, PackWriter, writeIndex } from '../pipeline/pack.js'
 
-it('finds a game file asked for in another case, as Windows does', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'pack-case-'))
-  try {
-    const pack = new PackWriter(join(dir, 'assets.pack'))
-    await pack.add('data/items.json', Buffer.from('[null]'))
-    await pack.add('data/Items.json.bak', Buffer.from('old'))
-    await pack.close()
-    await writeIndex(join(dir, 'assets.json'), pack.index)
-    const reader = new PackReader(join(dir, 'assets.pack'), join(dir, 'assets.json'))
-    expect((await reader.read('data/Items.json'))?.toString()).toBe('[null]')
-    expect((await reader.read('DATA/ITEMS.JSON'))?.toString()).toBe('[null]')
-    expect(await reader.entry('data/Weapons.json')).toBeNull()
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
-})
-
 it('gives the plain picture or sound for a file RPG Maker ships encrypted', async () => {
   const { decryptedRpgMaker } = await import('../play/rpgmaker.js')
   const dir = mkdtempSync(join(tmpdir(), 'pack-rpgm-'))

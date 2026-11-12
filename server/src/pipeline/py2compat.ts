@@ -35,14 +35,17 @@ python early:
         import re
         import sys
         import types
-
-        if getattr(builtins, "__renplay2__", None) is not None:
-            return
+        # The store's dict, list and object are Ren'Py's revertable ones: these mean Python's own.
+        # Literals ([] and {}) still make the revertable kinds, so the script's own state uses calls.
+        from builtins import dict, list, object, sorted, tuple
 
         # In game code renpy is renpy.exports: the engine's own modules come from sys.modules.
         def engine(name):
             return sys.modules.get("renpy." + name) or getattr(renpy, name, None)
         python_module = engine("python")
+        # Installed once per load of the engine's modules (a reload brings back the originals).
+        if getattr(python_module.py_compile, "renplay2", False):
+            return
 
         R = types.ModuleType("renplay_py2")
         sys.modules["renplay_py2"] = R
@@ -62,7 +65,6 @@ python early:
         def type_name(x):
             name = type(x).__name__
             return "str" if name == "bytes" else name
-
         @export
         def cmp(a, b):
             if a is b:
@@ -104,16 +106,13 @@ python early:
             return sign(id(a) - id(b))
 
         py2_key = functools.cmp_to_key(cmp)
-
         def ordering_key(key):
             return py2_key if key is None else (lambda x: py2_key(key(x)))
-
         def with_cmp(key, compare):
             if compare is None:
                 return key
             k = functools.cmp_to_key(compare)
             return k if key is None else (lambda x: k(key(x)))
-
         def sort_list(lst, cmp=None, key=None, reverse=False):
             key = with_cmp(key, cmp)
             try:
@@ -133,7 +132,6 @@ python early:
                 if cmp is not None:
                     raise
                 return f(items, key=ordering_key(key), reverse=reverse)
-
         def call_extreme(f, *args, **kwargs):
             if len(args) == 1:
                 args = (list(args[0]),)
@@ -142,7 +140,6 @@ python early:
             except TypeError:
                 key = kwargs.pop("key", None)
                 return f(*args, key=ordering_key(key), **kwargs)
-
         def call_map(f, function, *iterables):
             if function is None:
                 if len(iterables) == 1:
@@ -151,7 +148,6 @@ python early:
             if len(iterables) > 1:
                 return [function(*t) for t in itertools.zip_longest(*iterables)]
             return list(f(function, *iterables))
-
         def call_filter(f, function, iterable):
             kept = f(function, iterable)
             if isinstance(iterable, str):
@@ -159,7 +155,6 @@ python early:
             if isinstance(iterable, tuple):
                 return tuple(kept)
             return list(kept)
-
         def call_list(f, *args, **kwargs):
             return list(f(*args, **kwargs))
         def call_round(f, number, ndigits=None):
@@ -168,7 +163,7 @@ python early:
             m = 10.0 ** (ndigits or 0)
             return math.copysign(math.floor(abs(number) * m + 0.5) / m, number)
 
-        special = {}
+        special = dict()
 
         @export
         def call(f, /, *args, **kwargs):
@@ -181,7 +176,6 @@ python early:
             return handler(f, *args, **kwargs)
 
         views = (type({}.keys()), type({}.values()), type({}.items()))
-
         def missing_method(obj, name, args, kwargs):
             if name in ("iteritems", "viewitems"):
                 return iter(obj.items()) if name == "iteritems" else obj.items()
@@ -194,7 +188,6 @@ python early:
             if name == "next":
                 return next(obj, *args)
             raise AttributeError("%r object has no attribute %r" % (type(obj).__name__, name))
-
         @export
         def meth(obj, name, /, *args, **kwargs):
             if name == "sort" and isinstance(obj, list):
@@ -208,7 +201,6 @@ python early:
             if name in ("keys", "values", "items") and isinstance(rv, views):
                 return list(rv)
             return rv
-
         @export
         def div(a, b):
             if isinstance(a, int) and isinstance(b, int):
@@ -227,7 +219,6 @@ python early:
                     return r
                 return test(r)
             return compare
-
         @export
         def py2_class(c):
             d = c.__dict__
@@ -262,15 +253,14 @@ python early:
         def alias(module, name, value):
             if module is not None and not hasattr(module, name):
                 setattr(module, name, value)
-
         def string_function(name):
             method = getattr(str, name)
             def f(s, *args):
                 return method(s, *args)
-            f.__name__ = name
-            return f
+            f.__name__ = "string_" + name
+            return export(f)
 
-        active = []
+        active = list()
 
         def activate():
             if active:
@@ -300,10 +290,16 @@ python early:
                                 ("uppercase", string.ascii_uppercase), ("maketrans", str.maketrans),
                                 ("atoi", int), ("atol", int), ("atof", float)):
                 alias(string, name, value)
-            alias(string, "join", lambda words, sep=" ": sep.join(words))
-            alias(string, "joinfields", string.join)
-            alias(string, "split", lambda s, sep=None, maxsplit=-1: s.split(sep, maxsplit))
-            alias(string, "splitfields", string.split)
+            @export
+            def string_join(words, sep=" "):
+                return sep.join(words)
+
+            @export
+            def string_split(s, sep=None, maxsplit=-1):
+                return s.split(sep, maxsplit)
+
+            for name, value in (("join", string_join), ("joinfields", string_join), ("split", string_split), ("splitfields", string_split)):
+                alias(string, name, value)
             for name in ("upper", "lower", "strip", "lstrip", "rstrip", "replace", "find", "rfind", "index",
                          "rindex", "count", "zfill", "capitalize", "swapcase", "ljust", "rjust", "center",
                          "expandtabs", "translate"):
@@ -361,7 +357,6 @@ python early:
 
         def helper(name, node):
             return ast.copy_location(ast.Attribute(value=ast.Name(id="__renplay2__", ctx=ast.Load()), attr=name, ctx=ast.Load()), node)
-
         def simple(target):
             if isinstance(target, ast.Name):
                 return True
@@ -370,7 +365,6 @@ python early:
             if isinstance(target, ast.Subscript):
                 return isinstance(target.value, ast.Name) and isinstance(target.slice, (ast.Name, ast.Constant))
             return False
-
         def loaded(target):
             target = copy.deepcopy(target)
             target.ctx = ast.Load()
@@ -419,7 +413,6 @@ python early:
                 self.generic_visit(node)
                 node.decorator_list.append(helper("py2_class", node))
                 return node
-
         def true_division(tree):
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom) and node.module == "__future__":
@@ -427,7 +420,7 @@ python early:
                         return True
             return False
 
-        python2 = []
+        python2 = list()
         class WrapNode(object):
             def __init__(self, wrapped):
                 self.wrapped = wrapped
@@ -466,7 +459,6 @@ python early:
             if body.endswith(","):
                 return '%sprint(%s, end=" ")' % (m.group(1), body[:-1])
             return "%sprint(%s)" % (m.group(1), body)
-
         def fix(source, e, first):
             msg = str(e.msg)
             if isinstance(e, TabError) or "inconsistent use of tabs" in msg:
@@ -522,8 +514,8 @@ python early:
                     if not isinstance(source, str):
                         raise
                     error = e
-                # Code that only compiles once fixed is Python 2.
-                activate()
+                # Code that compiles once fixed is Python 2. A failed compile alone proves nothing:
+                # Ren'Py also compiles every statement as an expression and ignores the errors.
                 python2[-1] = True
                 first = getattr(source, "linenumber", None) or kwargs.get("lineno") or (args[1] if len(args) > 1 else 1)
                 fixed = source
@@ -532,17 +524,21 @@ python early:
                     if attempt is None or attempt == str(fixed):
                         raise error
                     try:
-                        fixed = type(source)(attempt, source.filename, source.linenumber)
+                        fixed = type(source)(attempt, source.filename, source.linenumber, 2, None, getattr(source, "column", 0))
                     except Exception:
                         fixed = attempt
                     try:
-                        return compile_py(fixed, mode, *args, **kwargs)
+                        code = compile_py(fixed, mode, *args, **kwargs)
                     except SyntaxError as e:
                         error = e
+                        continue
+                    activate()
+                    return code
                 raise error
             finally:
                 python2.pop()
 
+        py_compile.renplay2 = True
         python_module.py_compile = py_compile
 
         # A game's own .py modules are imported, not compiled by Ren'Py. In a Python 2 game they
@@ -578,19 +574,20 @@ python early:
         if importer is not None:
             source_to_code = importer.source_to_code
 
-            def py2_source_to_code(*args, **kwargs):
-                # Called on the importer or on an instance: (self,) data, path.
-                rest = args[1:] if args and isinstance(args[0], importer) else args
-                if not active or not rest:
-                    return source_to_code(*rest, **kwargs)
-                data, path = rest[0], (rest[1] if len(rest) > 1 else kwargs.get("path", "<string>"))
-                try:
-                    return module_code(data, path)
-                except SyntaxError:
-                    return source_to_code(*rest, **kwargs)
+            def py2_source_to_code(data, path="<string>"):
+                if active:
+                    try:
+                        return module_code(data, path)
+                    except SyntaxError:
+                        pass
+                return source_to_code(data, path)
 
             importer.source_to_code = staticmethod(py2_source_to_code)
         pyanalysis = engine("pyanalysis")
+        # Screens fold constant expressions: the helpers are as pure as what they stand for.
+        for name in ("__renplay2__.div", "__renplay2__.call"):
+            if hasattr(pyanalysis, "pure"):
+                pyanalysis.pure(name)
         if getattr(pyanalysis, "py_compile", None) is compile_py:
             pyanalysis.py_compile = py_compile
 

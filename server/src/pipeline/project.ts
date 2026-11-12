@@ -183,14 +183,9 @@ export async function extractProject(
     gameEntries.push({ rel: g, e })
     total += e.size
   }
-  // The game's own files win over the old common pictures.
-  const own = new Set(gameEntries.map((x) => x.rel.toLowerCase()))
-  for (const x of oldCommon) {
-    if (own.has(x.rel.toLowerCase()) || skipped(x.rel)) continue
-    own.add(x.rel.toLowerCase())
-    gameEntries.push(x)
-    total += x.e.size
-  }
+  // Games made with Ren'Py 7 and later never use the old themes.
+  if (Number(meta.renpyVersion?.split('.')[0]) >= 7) oldCommon.length = 0
+  for (const x of oldCommon) total += x.e.size
 
   let done = 0
   let reported = Date.now()
@@ -254,8 +249,7 @@ export async function extractProject(
     stats.files++
   }
 
-  // Phase A: loose files. They take precedence over archive contents.
-  for (const { rel: g, e } of gameEntries) {
+  const writeLoose = async (g: string, e: SourceEntry) => {
     ctx.checkAbort()
     noteFile(g)
     stats.bytesIn += e.size
@@ -278,6 +272,9 @@ export async function extractProject(
     }
     tick(e.size, g)
   }
+
+  // Phase A: loose files. They take precedence over archive contents.
+  for (const { rel: g, e } of gameEntries) await writeLoose(g, e)
 
   // Phase B: archives, in name order. The first archive holding a name wins.
   rpas.sort((a, b) => a.rel.localeCompare(b.rel))
@@ -360,6 +357,9 @@ export async function extractProject(
     tick(e.size - reported, archiveRel)
     stats.archivesSplit++
   }
+
+  // Last, the old common pictures the game has no file of its own for, loose or archived.
+  for (const { rel: g, e } of oldCommon) if (!skipped(g)) await writeLoose(g, e)
 
   await limiter.drain()
   ctx.log(`Prepared ${placeholders.size} streaming placeholders`)
