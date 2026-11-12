@@ -191,10 +191,10 @@ export class SaveStore {
     await mkdir(dir, { recursive: true })
     const id = `${Date.now()}__${reason.replace(/[^a-z-]/g, '')}__${sha1(data).slice(0, 10)}`
     await writeFileAtomic(join(dir, id), data)
-    // Prune old versions, except of a pinned save. A version that is the only copy of something (the
+    // Prune old versions (unless every version is kept), except of a pinned save. A version that is the only copy of something (the
     // older of two, a deleted save, what an import or restore replaced) stays at least 30 days
     // however many versions follow it.
-    if (this.pinned(saveDir, rel)) return
+    if (this.pinned(saveDir, rel) || this.keepVersions <= 0) return
     const versions = (await readdir(dir)).filter((n) => !n.startsWith('.')).sort()
     const excess = versions.length - this.keepVersions
     if (excess <= 0) return

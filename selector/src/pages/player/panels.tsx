@@ -149,6 +149,7 @@ export function DisplayPanel({
             [
               ['fit', 'Fit', 'The whole game, with bars where the screen has another shape'],
               ['fill', 'Fill', 'No bars at the sides. The edges are cropped, never the top or bottom'],
+              ['stretch', 'Stretch', 'The whole screen, nothing cropped. The game is drawn a little wider or taller'],
             ] as const
           ).map(([id, label, hint]) => (
             <button

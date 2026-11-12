@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, unlink } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, rm, unlink } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Config } from '../config.js'
 import { exists, walkFiles, writeFileAtomic } from '../util/fsx.js'
@@ -128,5 +128,13 @@ export class Overlays {
     const dest = join(this.cfg.overlaysDir, '.archived', `${slug}-${Date.now()}`)
     await mkdir(dirname(dest), { recursive: true })
     await rename(src, dest)
+  }
+
+  /** Deletes a game's mods, with the ones updates moved aside: for an uninstall that cleans up. */
+  async removeAll(slug: string): Promise<void> {
+    await rm(this.root(slug), { recursive: true, force: true })
+    const archived = join(this.cfg.overlaysDir, '.archived')
+    const moved = (await readdir(archived).catch(() => [] as string[])).filter((n) => n.startsWith(`${slug}-`) && /^\d+$/.test(n.slice(slug.length + 1)))
+    for (const n of moved) await rm(join(archived, n), { recursive: true, force: true })
   }
 }

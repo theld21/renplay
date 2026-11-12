@@ -12,7 +12,7 @@ import { ENGINE_FILES, type EngineStore } from '../engines.js'
 import type { JobContext, JobManager } from '../jobs/manager.js'
 import type { Overlays } from '../games/mods.js'
 import { dirSize, exists } from '../util/fsx.js'
-import { HttpError, cleanRelPath, isSlug, safeJoin } from '../util/paths.js'
+import { HttpError, cleanRelPath, isSlug, safeJoin, slugify } from '../util/paths.js'
 import { extractWithBsdtar, openDir, openZip, readAll, sniffArchive, type ArchiveSource, type SourceEntry } from './archive.js'
 import { assemble, RangeStream } from './assemble.js'
 import { nameVersionFromSource, pythonOf, renpyVersionFromVc, saveDirFromRpyc, saveDirFromSource, vcNeedsInit } from './detect.js'
@@ -57,14 +57,17 @@ export interface ImportDeps {
  * The library entry an install goes into: the one asked for, the one linked to the matched
  * recipe, or one with the same save folder. Seasons and spin-offs often share a save folder (that
  * is how a sequel reads the earlier saves), so a game already linked to another recipe is never
- * taken over through its save folder.
+ * taken over through its save folder. Games made from a Ren'Py sample can keep its save folder
+ * (Leave keeps "the_question-7"): there the title must match too, or one game replaces another.
  */
-export function existingGame(db: Db, game: string | undefined, recipeId: string | undefined, saveDir: string | undefined): GameRow | null {
+export function existingGame(db: Db, game: string | undefined, recipeId: string | undefined, saveDir: string | undefined, title?: string): GameRow | null {
   if (game) return db.getGame(game)
   const byRecipe = recipeId ? db.gameByRecipe(recipeId) : null
   if (byRecipe) return byRecipe
   if (!saveDir) return null
-  return db.gamesBySaveDir(saveDir).find((g) => !recipeId || !g.recipe_id || g.recipe_id === recipeId) ?? null
+  const sample = /^(the_question|tutorial)(-\d+)?$/i.test(saveDir)
+  const sameTitle = (g: GameRow) => !sample || !title || !g.title || slugify(g.title) === slugify(title)
+  return db.gamesBySaveDir(saveDir).find((g) => (!recipeId || !g.recipe_id || g.recipe_id === recipeId) && sameTitle(g)) ?? null
 }
 
 export async function runImport(ctx: JobContext<ImportParams>, deps: ImportDeps): Promise<unknown> {
@@ -150,7 +153,7 @@ async function install(ctx: JobContext<ImportParams>, deps: ImportDeps): Promise
     const engine = await engines.pick(p.engine ?? settings.engine, gameRenpy ?? match?.release?.madeWith)
     ctx.log(`Game made with Ren'Py ${gameRenpy ?? 'unknown'}; building with engine ${engine}`)
     if (gameRenpy && Number(gameRenpy.split('.')[0]) < Number(engine.split('.')[0])) {
-      ctx.log(`Made with an older Ren'Py: most such games work on the newer engine, but Python 2 code in the game can fail while playing. Report problems to the catalog.`)
+      ctx.log(`Made with an older Ren'Py: its Python 2 code is run the way Python 2 did on the newer engine. Report problems to the catalog.`)
     }
     const engineDir = await engines.ensure(engine, ctx)
 
@@ -209,7 +212,7 @@ async function install(ctx: JobContext<ImportParams>, deps: ImportDeps): Promise
     const saveDir = match?.recipe.saveDir ?? meta.saveDir
 
     // 6. Game id: the existing game, the recipe, or the title.
-    const existing = existingGame(db, p.game, match?.recipe.id, saveDir)
+    const existing = existingGame(db, p.game, match?.recipe.id, saveDir, meta.title)
     if (p.game && !existing) throw new HttpError(404, `Game ${p.game} not found`)
     const id = existing?.id ?? (match && !db.getGame(match.recipe.id) ? match.recipe.id : builds.uniqueId(match?.recipe.title || meta.title || basename(archivePath).replace(/\.[^.]+$/, '')))
     if (!isSlug(id)) throw new Error(`Invalid game id ${id}`)
@@ -359,7 +362,7 @@ async function installHtml(
   const version = match?.release?.version ?? versionFromName(o.archiveName)
   // Where the story keeps its saves: SugarCube uses its title's slug.
   const saveDir = match?.recipe.saveDir ?? storyId(engine.title ?? title)
-  const existing = existingGame(db, p.game, match?.recipe.id, saveDir)
+  const existing = existingGame(db, p.game, match?.recipe.id, saveDir, title)
   if (p.game && !existing) throw new HttpError(404, `Game ${p.game} not found`)
   const id = existing?.id ?? (match && !db.getGame(match.recipe.id) ? match.recipe.id : builds.uniqueId(title))
   if (!isSlug(id)) throw new Error(`Invalid game id ${id}`)

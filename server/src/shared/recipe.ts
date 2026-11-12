@@ -142,3 +142,19 @@ export function normalizeRecipe(g: any): Recipe {
     releases: g.releases.map(({ renpy, engine, ...r }: any) => ({ ...r, madeWith: r.madeWith ?? renpy, runtime: r.runtime ?? engine })),
   }
 }
+
+/**
+ * A free game on itch.io that Renplay can download itself: the newest tested release with a PC
+ * download, that download and the game page. Null for anything else.
+ */
+export function downloadable(recipe: Pick<Recipe, 'free' | 'links' | 'releases'>): { release: RecipeRelease; archive: RecipeArchive; page: string } | null {
+  const page = recipe.links?.['itch']
+  if (!recipe.free || !page || !/^https:\/\/[a-z0-9-]+\.itch\.io\/[a-z0-9_-]+\/?$/i.test(page)) return null
+  for (const release of recipe.releases) {
+    if (release.status !== 'verified' && release.status !== 'playable') continue
+    const archives = release.archives.filter((a) => /\.(zip|7z|rar|tar\.bz2|tar\.gz)$/i.test(a.name) && !/-(mac|linux|android)\b/i.test(a.name))
+    const archive = archives.find((a) => /-pc\b|win/i.test(a.name)) ?? archives[0]
+    if (archive) return { release, archive, page: page.replace(/\/$/, '') }
+  }
+  return null
+}

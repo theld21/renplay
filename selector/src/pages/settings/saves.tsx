@@ -70,7 +70,7 @@ function SaveBackups() {
       {data.dir ? (
         <>
           <p className="small muted">
-            A zip of everyone’s saves goes to <code>{data.dir}</code> once a day, and the newest {data.keep} are kept.{' '}
+            A zip of everyone’s saves goes to <code>{data.dir}</code> once a day, and {data.keep > 0 ? `the newest ${data.keep} are` : 'every one is'} kept.{' '}
             {data.last ? `The last one was ${ago(data.last)}.` : 'None yet.'} A server that sleeps when idle makes it the next time it runs.
           </p>
           {data.error && <p className="small" style={{ color: 'var(--amber)' }}>The last backup failed: {data.error}</p>}

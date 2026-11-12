@@ -39,3 +39,16 @@ it('prefers the game asked for, then the recipe link', () => {
   expect(existingGame(db, undefined, 'season-3', 'Shared')).toBeNull()
   db.close()
 })
+
+it('does not replace another game that only shares the save folder of Ren\'Py\'s sample', () => {
+  const db = library()
+  db.insertGame({ id: 'the-question', title: 'The Question', save_dir: 'the_question-7' })
+  // Leave kept the sample's save folder: it is a game of its own.
+  expect(existingGame(db, undefined, undefined, 'the_question-7', 'Leave.')).toBeNull()
+  // A new release of The Question still updates it, whatever the title's case.
+  expect(existingGame(db, undefined, undefined, 'the_question-7', 'the question')?.id).toBe('the-question')
+  // A game's own save folder still finds it when a new release renames it.
+  db.insertGame({ id: 'saga', title: 'Saga Ch.1', save_dir: 'Saga-1593632962' })
+  expect(existingGame(db, undefined, undefined, 'Saga-1593632962', 'Saga Ch.2')?.id).toBe('saga')
+  db.close()
+})

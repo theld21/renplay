@@ -208,19 +208,27 @@ browser ── nginx :8080 ─┬─ /                      library UI (selector
 - **Download links do not work from the server.** File hosts (Mediafire, Mega, Google Drive…)
   tie a direct link to the browser and IP that opened it, and official stores need the user's
   login, so "install from a link" failed for real links and was removed. Games arrive by upload or
-  through the archives folder.
+  through the archives folder. The one exception is a free game on itch.io (`library/itch.ts`): its
+  game page's own Download button asks for the file with the page's session, which a server can do.
 - **Ren'Py 7 games run on the Ren'Py 8 engine.** Ren'Py 8 loads their compiled scripts and
   compiles all their Python at load time, so a game that starts has no Python 2 syntax; what can
   still fail is Python 2 behaviour (xrange, iteritems, unicode). Once in a Lifetime (7.3.2)
   played through its opening, a fight minigame and more without errors. Harem Hotel (7.4.11)
   does not: it sorts numbers with text, which Python 3 refuses.
+- **Python 2 code is rewritten, only Python 2 code.** Ren'Py 8 marks Python loaded from an old
+  `.rpyc` with `PyExpr.py == 2`. `py2compat.ts` (`game/!renplay_py2.rpy`, named to load before any game
+  file, since Ren'Py compiles each file's Python as it loads it) wraps `renpy.python.py_compile`
+  (and the copy `renpy.pyanalysis` imported, which screens use) and `wrap_node`, and rewrites only
+  that code: integer `/`, list-returning `keys()`/`map()`/`zip()`, Python 2 ordering on a
+  `TypeError`, `__cmp__` and friends on classes. A probe game with 37 Python 2 idioms went from 8 to
+  37 working on 8.5.3.
 - **Load the developer's .rpyc, not the .rpy.** A `.rpyc` stores its source's digest with a
   marker of the Ren'Py version that wrote it, so Ren'Py 8.5 sees every older game's `.rpyc` as
   stale and compiles the `.rpy` again, with a stricter parser and Python 3.12 (Harem Hotel's
   empty `screen`, Heros Harem Guild's `[:02]` and `xadjustment` failed that way). Builds keep
   sources out of `game.zip` when the `.rpyc` is there (`setSourcesAside`). Ren'Py's own Python 2
   fixer (`renpy.compat.fixes`) uses `tokenize`, which Python 3.12 makes fail on the very code it
-  should fix; `webcompat.ts` retries from the error's position instead.
+  should fix; `py2compat.ts` retries from the error's position instead.
 - **GitHub release downloads can fail for hours.** On 2026-11-08 they answered 504 all morning: no
   new install could fetch its engine, and CI steps that downloaded tools from releases failed. Engines
   are served from engines.renplay.org now (the engines repository checks every file there before

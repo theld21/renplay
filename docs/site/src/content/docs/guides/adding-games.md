@@ -16,7 +16,9 @@ Patreon, Steam and so on).
   better way for big files or a file already on the server.
 
 Renplay does not install from a link. File hosts tie a direct link to the browser that opened it,
-and stores need your login, so the file has to come from you.
+and stores need your login, so the file has to come from you. The exception is a catalog game that
+is free on itch.io: its catalog page has **Download and install**, and Renplay fetches the tested
+release itself. An admin's upload installs as soon as it arrives.
 
 Add games lists every download with what Renplay found: the game, its engine and whether the
 [catalog](/catalog/) knows it. A download that cannot be installed shows the reason, for example an
@@ -52,8 +54,9 @@ pressed **Retry** on the same job.
 
 ## After an install
 
-- **Uninstall** removes the build. **Saves stay.** So do your mods, the library entry and
-  favourites.
+- **Uninstall** removes the game: its build, its download (unless another game was installed from
+  it), its mods and walkthrough, and the library entry. **Saves stay**, so adding the game again
+  continues where you left off.
 - **Reinstall** from the kept archive makes a fresh build, and saves stay.
 - **Updates.** When the catalog lists a newer tested release than the one you have, Renplay says
   so. Download the new file and add it the same way.

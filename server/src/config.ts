@@ -252,7 +252,7 @@ export function loadConfig(): Config {
       if (raw.toLowerCase() === 'off') return null
       return raw || join(dataDir, 'backups', 'saves')
     })(),
-    backupKeep: Math.max(1, int('RENPLAY_BACKUP_KEEP')),
+    backupKeep: Math.max(0, int('RENPLAY_BACKUP_KEEP')),
     recipesDir: text('RENPLAY_RECIPES_DIR') || join(dataDir, 'recipes'),
     syncServer: text('RENPLAY_SYNC_SERVER').replace(/\/+$/, ''),
     telemetry: process.env['RENPLAY_TELEMETRY']?.trim() ? (bool('RENPLAY_TELEMETRY') ? 'on' : 'off') : '',

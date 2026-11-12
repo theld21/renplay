@@ -236,11 +236,11 @@ Images converted in parallel during an install. `0` picks the CPU count.
 
 <div class="config-default">
 
-Default: `20`
+Default: `0`
 
 </div>
 
-Earlier versions kept per save file.
+Earlier versions kept per save file. `0` keeps every version.
 
 </div>
 
@@ -278,11 +278,11 @@ The Ren’Py sync server for Sync codes, which an admin turns on in Settings. Ch
 
 <div class="config-default">
 
-Default: `14`
+Default: `0`
 
 </div>
 
-Save backups kept. Older ones are deleted.
+Save backups kept. Older ones are deleted. `0` keeps every backup.
 
 </div>
 

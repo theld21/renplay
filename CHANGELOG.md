@@ -7,6 +7,30 @@ release notes say what).
 
 ## [Unreleased]
 
+### Added
+
+- **Stretch** in the player's display options fills the whole screen without cropping anything: the game is drawn a little wider or taller. On a long phone a 16:9 game gets about a fifth bigger.
+- Fit, Fill and Stretch work for RPG Maker and other games drawn on a canvas of their own size: the game tells the player its size.
+- RPG Maker games on a phone use the whole height of the screen. They kept a tenth free for browser bars the player does not have.
+- **Download and install** in the catalog, for free games on itch.io: Renplay downloads the release the catalog tested, checks its size and checksum, and installs it. No download and upload by hand. With **Keep downloads** off, the download is deleted once the game installed, as an upload is.
+- Games made with Ren'Py 7 and older play much more often. Their Python 2 code now runs the way Python 2 did on the Ren'Py 8 engine: whole-number division, lists from `keys()`, `map()` and `zip()`, sorting numbers with text, `cmp`, `long`, `iteritems`, `string.letters`, classes with `__cmp__` or `__nonzero__`, Python 2 statements, and the game's own `.py` files. Games made with Ren'Py 8 are not changed. Reinstall an older game to get this.
+
+### Changed
+
+- An admin's upload installs as soon as it arrives, into the game it updates when there is one, keeping its mods. With Keep downloads off the upload is deleted once installed. A failed install keeps it to try again.
+- A game's **Manage** tab has one **Uninstall**: it deletes the game, its download (unless another game was installed from it), its mods and walkthrough, and removes it from the library. Your saves stay, so adding the game again continues where you left off.
+- Nothing of yours is deleted on its own any more: every version of each save and every daily save backup is kept. `RENPLAY_SAVE_HISTORY` and `RENPLAY_BACKUP_KEEP` still set a limit if you want one.
+
+### Fixed
+
+- RPG Maker games with encrypted pictures and sounds show them when a plugin asks for the plain file (a preloader asking for img/pictures/x.png when the game has x.rpgmvp): Renplay serves it decrypted. Before, such a picture stayed blank.
+- Games made on Windows that ask for a file in another case (data/Items.json for data/items.json) find it.
+- RPG Maker MZ games play from their PC download: their windows and menus no longer stop the game, and their music plays. The game's frame now loads its pictures and media so they can be read back, starts workers from a copy of their script, sends no cookies with requests for the game's own files, lets a game lock the screen's orientation, and on iPhone no longer stops a game that looks for gamepads.
+- Uploads are much faster and no longer hang. A computer sends four pieces at once, an iPhone or iPad one at a time, which is fastest there. A piece that seems stuck is checked with the server first and only sent again when the server lacks it, so iPhone Safari, which reports progress rarely, no longer sends the same pieces over and over.
+- Installing a game that kept the save folder of Ren'Py's sample (Leave keeps "the_question-7") no longer replaces another game with that folder. Without a catalog recipe, the title must match too.
+- Games made with Ren'Py 6 that use its old themes show their frames and buttons again (Be A Man), from the pictures their download ships.
+- Renplay reads the Ren'Py version of games made with Ren'Py 7.5 to 7.8, whose version file writes it as `u'7.8.7'`.
+
 ## [4.10.0] - 2026-11-11
 
 ### Added

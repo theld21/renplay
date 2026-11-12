@@ -368,6 +368,110 @@
   // Retry both storage APIs until the trusted parent acknowledges durable storage, not upload.
   setInterval(function () { sendStorage(); flushIdb() }, 5000)
 
+  // ------------------------------------------------------------- the game's own files
+
+  // The frame's origin is opaque, so every file of the game is another origin's. The server
+  // allows any origin to read them (Access-Control-Allow-Origin), but the browser still needs to
+  // be asked: pictures are loaded with crossOrigin, or a canvas that draws one cannot be read back
+  // (RPG Maker reads its window skin's colours) nor media fed to Web Audio, and a worker is started
+  // from a copy of its script, since a worker cannot start from another origin's address (RPG Maker
+  // MZ decodes its music in one).
+  var gameBase = location.href.replace(/[^/]*([?#].*)?$/, '')
+  function isGameFile(url) {
+    try {
+      return new URL(String(url), location.href).href.indexOf(gameBase) === 0
+    } catch (e) {
+      return false
+    }
+  }
+  function corsFirst(element, value) {
+    if (element.crossOrigin === null && typeof value === 'string' && isGameFile(value)) element.crossOrigin = 'anonymous'
+  }
+  ;['HTMLImageElement', 'HTMLMediaElement'].forEach(function (name) {
+    var proto = window[name] && window[name].prototype
+    var srcDesc = proto && Object.getOwnPropertyDescriptor(proto, 'src')
+    if (!srcDesc || !srcDesc.set) return
+    Object.defineProperty(proto, 'src', {
+      configurable: true,
+      enumerable: srcDesc.enumerable,
+      get: srcDesc.get,
+      set: function (value) {
+        corsFirst(this, value)
+        srcDesc.set.call(this, value)
+      },
+    })
+  })
+  // Pictures and media named in the page's markup or with setAttribute.
+  if (window.Element && window.Element.prototype.setAttribute) {
+    var setAttribute = window.Element.prototype.setAttribute
+    window.Element.prototype.setAttribute = function (name, value) {
+      if (String(name).toLowerCase() === 'src' && /^(IMG|VIDEO|AUDIO)$/.test(this.tagName || '')) corsFirst(this, value)
+      return setAttribute.call(this, name, value)
+    }
+  }
+  // The game's files need no cookies, and a request that asks for them is refused across origins.
+  if (window.fetch) {
+    var gameFetch = window.fetch
+    window.fetch = function (input, init) {
+      if (init && init.credentials === 'include' && typeof input === 'string' && isGameFile(input)) init = Object.assign({}, init, { credentials: 'same-origin' })
+      return gameFetch.call(this, input, init)
+    }
+  }
+  if (window.XMLHttpRequest) {
+    var xhrOpen = window.XMLHttpRequest.prototype.open
+    var xhrSend = window.XMLHttpRequest.prototype.send
+    window.XMLHttpRequest.prototype.open = function (method, url) {
+      this.__renplayGameFile = isGameFile(url)
+      return xhrOpen.apply(this, arguments)
+    }
+    window.XMLHttpRequest.prototype.send = function () {
+      if (this.__renplayGameFile && this.withCredentials) this.withCredentials = false
+      return xhrSend.apply(this, arguments)
+    }
+  }
+
+  // A browser that still refuses the frame a feature it asks for every frame answers as if
+  // nothing is there, instead of stopping the game (iPhone Safari and getGamepads).
+  var nav = window.navigator
+  if (nav && typeof nav.getGamepads === 'function') {
+    var getGamepads = nav.getGamepads
+    try {
+      nav.getGamepads = function () {
+        try {
+          return getGamepads.call(nav)
+        } catch (e) {
+          return []
+        }
+      }
+    } catch (e) {}
+  }
+
+  var NativeWorker = window.Worker
+  if (NativeWorker) {
+    var GameWorker = function (url, options) {
+      try {
+        return new NativeWorker(url, options)
+      } catch (e) {
+        if (!e || e.name !== 'SecurityError' || (options && options.type === 'module')) throw e
+        var address = new URL(String(url), location.href).href
+        var request = new XMLHttpRequest()
+        request.open('GET', address, false)
+        request.send()
+        if (request.status < 200 || request.status >= 300) throw e
+        // Relative addresses in the worker (importScripts, fetch) still mean the game's folder.
+        var base = address.replace(/[^/]*([?#].*)?$/, '')
+        var prelude =
+          '(function(){var b=' + JSON.stringify(base) + ';function at(u){return typeof u==="string"?new URL(u,b).href:u}' +
+          'var i=self.importScripts;self.importScripts=function(){return i.apply(self,Array.prototype.map.call(arguments,at))};' +
+          'var f=self.fetch;if(f)self.fetch=function(u,o){return f.call(self,at(u),o)}})();\n'
+        var copy = URL.createObjectURL(new Blob([prelude, request.responseText], { type: 'text/javascript' }))
+        return new NativeWorker(copy, options)
+      }
+    }
+    GameWorker.prototype = NativeWorker.prototype
+    window.Worker = GameWorker
+  }
+
   // ------------------------------------------------------------- mute
 
   // Media elements follow the player's choice; the game's own muting is kept apart.
@@ -432,7 +536,57 @@
     }
   })
 
+  // A game that draws on a canvas of its own size (RPG Maker draws at its resolution) tells the
+  // player that size, so Fit, Fill and Stretch can shape the frame. A page that follows the
+  // window (Twine, or a canvas sized to the window) says nothing and keeps the whole area.
+  var reported = ''
+  function reportScreen() {
+    var dpr = window.devicePixelRatio || 1
+    var near = function (a, b) { return Math.abs(a - b) < 4 }
+    var follows = function (c) {
+      return (near(c.width, window.innerWidth) && near(c.height, window.innerHeight)) || (near(c.width, window.innerWidth * dpr) && near(c.height, window.innerHeight * dpr))
+    }
+    var best = null
+    var list = document.getElementsByTagName ? document.getElementsByTagName('canvas') : []
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i]
+      if (c.width >= 320 && c.height >= 200 && !follows(c) && (!best || c.width * c.height > best.width * best.height)) best = c
+    }
+    if (!best) return
+    var w = best.width
+    var h = best.height
+    if (reported === w + 'x' + h) return
+    reported = w + 'x' + h
+    post('info', { screen: [w, h] })
+  }
+
+  // RPG Maker MV and MZ in a phone's browser keep a tenth of the height free for the browser's
+  // bars. A game's frame has none, so it would only show a band of black: it takes the whole height.
+  var fullHeight = false
+  function rpgMakerFullHeight() {
+    var G = window.Graphics
+    if (fullHeight || !G || typeof G._stretchHeight !== 'function' || !window.Utils || !window.Utils.RPGMAKER_NAME) return
+    fullHeight = true
+    G._stretchHeight = function () {
+      return document.documentElement.clientHeight || window.innerHeight
+    }
+    try {
+      if (G._canvas && typeof G._updateRealScale === 'function') {
+        G._updateRealScale()
+        if (typeof G._updateAllElements === 'function') G._updateAllElements()
+      }
+    } catch (e) {}
+  }
+
   window.addEventListener('load', function () {
     post('ready')
+    rpgMakerFullHeight()
+    // Engines size their canvas while they boot: look for a while, and again if it changes.
+    var looks = 0
+    var look = setInterval(function () {
+      rpgMakerFullHeight()
+      reportScreen()
+      if (++looks >= 30) clearInterval(look)
+    }, 1000)
   })
 })()

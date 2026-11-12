@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { hashArchive } from './library/archives.js'
+import { downloadCatalogGame } from './library/itch.js'
 import { ArtStore } from './art/store.js'
 import { Accounts } from './accounts/accounts.js'
 import { SaveBackups } from './saves/backups.js'
@@ -93,5 +94,6 @@ export async function createServices(cfg: Config): Promise<Services> {
     return built
   })
   s.jobs.register('hash-archive', 'Checksum', (ctx) => hashArchive(ctx, s))
+  s.jobs.register('catalog-download', 'Download', (ctx) => downloadCatalogGame(ctx, s))
   return s
 }

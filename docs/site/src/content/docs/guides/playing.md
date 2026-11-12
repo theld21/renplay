@@ -54,6 +54,8 @@ top left and, beside it, **Full screen**. Both are lit for the first seconds of 
 **Options → Scaling** decides how the game meets a screen of another shape. **Fit** shows the whole
 game in its own shape with bars around it. **Fill** has no bars at the sides: it crops the edges of a
 game wider than the screen, and never the top or bottom, where games keep their dialogue.
+**Stretch** fills the whole screen and crops nothing: the game is drawn a little wider or taller (on
+a long phone a 16:9 game gets about a fifth bigger).
 
 Walkthroughs open in a window beside the game that you can move, resize and see through, or below
 it on a phone held upright.

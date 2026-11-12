@@ -184,8 +184,8 @@ export const ENV_VARS: readonly EnvVar[] = [
     name: 'RENPLAY_SAVE_HISTORY',
     group: 'Images and saves',
     kind: 'number',
-    fallback: 20,
-    description: 'Earlier versions kept per save file.',
+    fallback: 0,
+    description: 'Earlier versions kept per save file. `0` keeps every version.',
   },
   {
     name: 'RENPLAY_BACKUP_DIR',
@@ -206,8 +206,8 @@ export const ENV_VARS: readonly EnvVar[] = [
     name: 'RENPLAY_BACKUP_KEEP',
     group: 'Images and saves',
     kind: 'number',
-    fallback: 14,
-    description: 'Save backups kept. Older ones are deleted.',
+    fallback: 0,
+    description: 'Save backups kept. Older ones are deleted. `0` keeps every backup.',
   },
   {
     name: 'RENPLAY_KEEPALIVE_URL',

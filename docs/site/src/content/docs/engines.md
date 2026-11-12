@@ -12,7 +12,7 @@ HTML games, that is fine.
 | Engine | Plays | Notes |
 |---|---|---|
 | Ren'Py 8, and 7 on the 8 engine | yes | Everything: saves on the server, streaming, phones, offline, controllers, mods |
-| HTML games: Twine (SugarCube, Harlowe), RPG Maker MV and MZ, TyranoScript, plain pages | Beta | Web pages already. Tested with Twine (SugarCube). RPG Maker MV and MZ and TyranoScript take the same path but are untested |
+| HTML games: Twine (SugarCube, Harlowe), RPG Maker MV and MZ, TyranoScript, plain pages | Beta | Web pages already. Tested with Twine (SugarCube) and RPG Maker MZ (its PC download, with music, windows and saves). RPG Maker MV and TyranoScript take the same path but are untested |
 | Everything else | no | Programs made for one system, such as RPG Maker XP, VX and VX Ace, Wolf RPG, Kirikiri, GameMaker, Unreal, and Unity or Godot PC builds, cannot run in a browser |
 
 Add games shows every download with the engine that made it, and the reason when it cannot be
@@ -21,10 +21,14 @@ installed. An engine is added only when its normal download plays as easily as a
 ## Ren'Py 7 games
 
 Renplay builds games made with Ren'Py 7 (and older) on the Ren'Py 8 engine, which loads their
-compiled scripts. A game that starts has no Python 2 syntax left to trip on. What can still fail
-is Python 2 behaviour, such as `xrange`, `iteritems` or `unicode`, or sorting numbers together
-with text. If such a game stops with a Python error, check the [catalog](/catalog/) for a note, and
-see [Troubleshooting](/troubleshooting/#a-renpy-7-game-stops-with-a-python-error).
+compiled scripts. Ren'Py 8 marks the Python in those scripts as Python 2, and Renplay rewrites that
+code as it compiles, so it behaves as it did: `7 / 2` is 3, `keys()`, `map()` and `zip()` give
+lists, sorting mixed values works, and `cmp`, `long`, `iteritems`, `string.letters`,
+`__cmp__` and `__nonzero__` are there. Python 2 statements (`print x`, `except E, e`, `exec`) are
+fixed where they fail to compile. The game's own `.py` files get the same treatment. Games made with
+Ren'Py 8 are left exactly as they are. If such a game still stops with a Python error, check the
+[catalog](/catalog/) for a note, and see
+[Troubleshooting](/troubleshooting/#a-renpy-7-game-stops-with-a-python-error).
 
 Renplay picks the engine for a game from its recipe, then `RENPLAY_ENGINE`, then the newest stable engine
 of the game's major version. A pre-release engine, which the engine index marks, is picked only for a

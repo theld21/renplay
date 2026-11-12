@@ -76,4 +76,33 @@ describe('project extraction memory', () => {
       rmSync(dir, { recursive: true, force: true })
     }
   })
+
+  it('gives a Ren\'Py 6 game the theme pictures of its own common folder, unless it has its own', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'project-common-'))
+    const assets = new PackWriter(join(dir, 'assets.pack'))
+    const zip = new PackWriter(join(dir, 'zip.pack'))
+    const process = vi.spyOn(ImageProcessor.prototype, 'process').mockImplementation(async (data) => ({ data, changed: false, placeholder: null }))
+    const file = (path: string, text: string) => ({ path, size: text.length, seekable: false, open: async () => Readable.from([Buffer.from(text)]) })
+    const src: ArchiveSource = {
+      kind: 'zip', close() {}, entries: [
+        file('Be A Man/game/script.rpyc', 'script'),
+        file('Be A Man/common/_theme_glow/g_box.png', 'glow box'),
+        file('Be A Man/common/_roundrect/rr12g.png', 'shipped'),
+        file('Be A Man/game/_roundrect/rr12g.png', 'own'),
+        file('Be A Man/common/00library.rpy', 'engine script'),
+      ],
+    }
+    try {
+      await extractProject(src, 'Be A Man/', dir, defaultImagePolicy(), 4, ctx, [], { assets, zip, skip: new Set() })
+      await Promise.all([assets.close(), zip.close()])
+      const files = [...zip.index.keys(), ...assets.index.keys()].sort()
+      expect(files).toEqual(['_roundrect/rr12g.png', '_theme_glow/g_box.png', 'script.rpyc'])
+      const [offset, size] = zip.index.get('_roundrect/rr12g.png') ?? assets.index.get('_roundrect/rr12g.png')!
+      expect(size).toBe(3)
+      expect(offset).toBeGreaterThanOrEqual(0)
+    } finally {
+      process.mockRestore()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })

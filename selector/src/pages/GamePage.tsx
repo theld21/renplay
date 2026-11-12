@@ -360,7 +360,7 @@ function Details({ game, section, onChangeArt }: { game: Game; section: 'details
   const qc = useQueryClient()
   const navigate = useNavigate()
   const pdfRef = useRef<HTMLInputElement>(null)
-  const [confirm, setConfirm] = useState<null | 'uninstall' | 'forget' | 'download'>(null)
+  const [confirm, setConfirm] = useState<null | 'uninstall'>(null)
   const [reinstall, setReinstall] = useState(false)
   const [reapply, setReapply] = useState(true)
   const refresh = () => {
@@ -539,25 +539,15 @@ function Details({ game, section, onChangeArt }: { game: Game; section: 'details
       </div>}
         {section === 'manage' && admin && (
           <Card title="Install and remove">
-            <p className="small muted" style={{ marginBottom: 12 }}>Reinstall and uninstall keep your saves, mods and walkthrough. Removing a game from the library keeps its saves.</p>
+            <p className="small muted" style={{ marginBottom: 12 }}>Uninstall removes the game and everything it uses on the server. Your saves stay, so adding it again continues where you left off.</p>
             <div className="actions">
               {game.canReinstall && (
                 <Pill size="sm" icon={<RefreshCw />} onClick={() => setReinstall(true)}>
                   {game.status === 'installed' ? 'Reinstall' : 'Install'}
                 </Pill>
               )}
-              {game.canReinstall && (
-                <Pill size="sm" variant="q" onClick={() => setConfirm('download')}>
-                  Delete download
-                </Pill>
-              )}
-              {game.status === 'installed' && (
-                <Pill size="sm" variant="d" onClick={() => setConfirm('uninstall')}>
-                  Uninstall
-                </Pill>
-              )}
-              <Pill size="sm" variant="q" onClick={() => setConfirm('forget')}>
-                Remove from library
+              <Pill size="sm" variant="d" onClick={() => setConfirm('uninstall')}>
+                Uninstall
               </Pill>
             </div>
           </Card>
@@ -584,44 +574,18 @@ function Details({ game, section, onChangeArt }: { game: Game; section: 'details
       </Sheet>
 
       <Confirm
-        open={confirm === 'download'}
-        onClose={() => setConfirm(null)}
-        danger
-        title="Delete this download?"
-        confirmLabel="Delete download"
-        onConfirm={async () => {
-          setConfirm(null)
-          await act(() => del(`/api/games/${game.id}/download`), 'Download deleted')
-        }}
-      >
-        Deletes {game.source.archive}. Reinstalling this game, or another game using the same download, will need the download again. Installed games and saves are kept.
-      </Confirm>
-      <Confirm
         open={confirm === 'uninstall'}
         onClose={() => setConfirm(null)}
         danger
-        title="Uninstall this game?"
+        title={`Uninstall ${game.title}?`}
         confirmLabel="Uninstall"
         onConfirm={async () => {
           setConfirm(null)
-          await act(() => del(`/api/games/${game.id}`), 'Uninstalled. Saves are kept.')
-        }}
-      >
-        Frees {bytes(game.sizeBytes)} on the server. Saves, mods and your walkthrough are kept{game.canReinstall ? ', and you can install it again from its archive' : ''}.
-      </Confirm>
-      <Confirm
-        open={confirm === 'forget'}
-        onClose={() => setConfirm(null)}
-        danger
-        title="Remove from library?"
-        confirmLabel="Remove"
-        onConfirm={async () => {
-          setConfirm(null)
-          await act(() => del(`/api/games/${game.id}?forget=1`), 'Removed from the library')
+          await act(() => del(`/api/games/${game.id}?forget=1&clean=1`), 'Uninstalled. Your saves are kept.')
           navigate('/')
         }}
       >
-        Deletes the installed files and the library entry. Save files stay on the server and reappear when the game is added again.
+        Deletes the game{game.status === 'installed' ? ` (${bytes(game.sizeBytes)})` : ''}{game.source.archive ? `, its download ${game.source.archive} unless another game was installed from it` : ''}, your mods and walkthrough for it, and removes it from the library. Your saves stay on the server.
       </Confirm>
     </div>
   )

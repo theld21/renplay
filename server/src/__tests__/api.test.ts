@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import request from 'supertest'
@@ -102,6 +102,37 @@ describe('HTTP API', () => {
     app.db.insertGame({ id: 'broken-now', title: 'Broken', status: 'installed', recipe_id: 'broken-now', version: '1.2', source: JSON.stringify({ archive: 'broken-now-1.2-pc.zip' }) })
     expect((await request(app.app).get('/api/games/broken-now').expect(200)).body.game.recipe).toMatchObject({ status: 'broken' })
     app.db.deleteGame('broken-now')
+  })
+
+  it('uninstalls a game cleanly: files, its own download, mods and the entry go, saves stay', async () => {
+    const cfg = app.services.cfg
+    mkdirSync(cfg.archivesDir, { recursive: true })
+    for (const name of ['clean-1.0-pc.zip', 'shared-1.0-pc.zip']) writeFileSync(join(cfg.archivesDir, name), 'zip')
+    mkdirSync(join(cfg.overlaysDir, 'clean-game', 'files'), { recursive: true })
+    mkdirSync(join(cfg.overlaysDir, '.archived', 'clean-game-1700000000000'), { recursive: true })
+    mkdirSync(join(cfg.overlaysDir, '.archived', 'clean-game-2-1700000000000'), { recursive: true })
+    const saves = join(cfg.dataDir, 'users', '1', 'saves', 'Clean-1')
+    mkdirSync(saves, { recursive: true })
+    writeFileSync(join(saves, '1-1-LT1.save'), 'save')
+    app.db.insertGame({ id: 'clean-game', title: 'Clean', status: 'installed', save_dir: 'Clean-1', source: JSON.stringify({ archive: 'clean-1.0-pc.zip' }) })
+    app.db.insertGame({ id: 'shared-a', title: 'Shared A', status: 'installed', source: JSON.stringify({ archive: 'shared-1.0-pc.zip' }) })
+    app.db.insertGame({ id: 'shared-b', title: 'Shared B', status: 'installed', source: JSON.stringify({ archive: 'shared-1.0-pc.zip' }) })
+    await request(app.app).delete('/api/games/clean-game?forget=1&clean=1').expect(200)
+    expect(app.db.getGame('clean-game')).toBeNull()
+    expect(() => statSync(join(cfg.archivesDir, 'clean-1.0-pc.zip'))).toThrow()
+    expect(() => statSync(join(cfg.overlaysDir, 'clean-game'))).toThrow()
+    // Mods an update moved aside go too, another game's (clean-game-2) stay.
+    expect(() => statSync(join(cfg.overlaysDir, '.archived', 'clean-game-1700000000000'))).toThrow()
+    expect(statSync(join(cfg.overlaysDir, '.archived', 'clean-game-2-1700000000000')).isDirectory()).toBe(true)
+    expect(statSync(join(saves, '1-1-LT1.save')).size).toBe(4)
+    // Another game was installed from the same download: it stays.
+    await request(app.app).delete('/api/games/shared-a?forget=1&clean=1').expect(200)
+    expect(statSync(join(cfg.archivesDir, 'shared-1.0-pc.zip')).size).toBe(3)
+    // Removing from the library without clean keeps the download, as before.
+    await request(app.app).delete('/api/games/shared-b?forget=1').expect(200)
+    expect(statSync(join(cfg.archivesDir, 'shared-1.0-pc.zip')).size).toBe(3)
+    rmSync(saves, { recursive: true, force: true })
+    rmSync(join(cfg.archivesDir, 'shared-1.0-pc.zip'), { force: true })
   })
 
   it('sets and clears favourites, preserving them on uninstall but not forget', async () => {
@@ -340,6 +371,28 @@ describe('HTTP API', () => {
     await request(app.app).get('/g/fixture-game/b1/..%2F..%2F_renplay/engines/8.5.3/.ready').expect(400)
   })
 
+  it('takes upload chunks in any order and at once, and completes only when all arrived', async () => {
+    const r = await request(app.app).post('/api/uploads').send({ name: 'Parallel-1.0-pc.zip', size: 12 }).expect(200)
+    const put = (offset: number, text: string) => request(app.app).put(`/api/uploads/${r.body.id}?offset=${offset}`).set('Content-Type', 'application/octet-stream').send(Buffer.from(text))
+    // The first chunks arrive together, before the server has read the upload once.
+    const first = await Promise.all([put(8, '89ab'), put(4, '4567')])
+    expect(first.map((x) => x.status)).toEqual([200, 200])
+    expect((await request(app.app).get(`/api/uploads/${r.body.id}`).expect(200)).body).toMatchObject({ received: 0, ranges: [[4, 12]] })
+    await request(app.app).post(`/api/uploads/${r.body.id}/complete`).expect(409)
+    await put(0, '0123').expect(200)
+    // A chunk sent again (its first try stalled) changes nothing.
+    await put(4, '4567').expect(200)
+    expect((await request(app.app).get(`/api/uploads/${r.body.id}`).expect(200)).body).toMatchObject({ received: 12, ranges: [[0, 12]] })
+    await put(10, 'xyz').expect(400)
+    const done = await request(app.app).post(`/api/uploads/${r.body.id}/complete`).expect(200)
+    expect(readFileSync(join(root, 'games', '_archives', done.body.path), 'utf8')).toBe('0123456789ab')
+    // An admin's upload installs at once. These bytes are no game: the install fails and keeps the upload.
+    expect(JSON.parse(app.db.getJob(done.body.jobId)!.params)).toMatchObject({ source: { kind: 'archive', path: done.body.path }, reapplyMods: true })
+    await vi.waitFor(() => expect(app.db.getJob(done.body.jobId)).toMatchObject({ type: 'import', status: 'failed' }), { timeout: 10000 })
+    expect(readFileSync(join(root, 'games', '_archives', done.body.path), 'utf8')).toBe('0123456789ab')
+    rmSync(join(root, 'games', '_archives', done.body.path))
+  })
+
   it('creates uploads at /api/uploads without a trailing slash', async () => {
     const r = await request(app.app).post('/api/uploads').send({ name: 'Game-1.0-pc.zip', size: 10 }).expect(200)
     expect(r.body.id).toMatch(/^u/)
@@ -348,6 +401,8 @@ describe('HTTP API', () => {
     const completed = await request(app.app).post(`/api/uploads/${r.body.id}/complete`).expect(200)
     const path = completed.body.path
     expect(app.db.isUploadedArchive(path, archiveIdentity(statSync(join(root, 'games', '_archives', path))))).toBe(true)
+    // Its install (these bytes are no game) fails before the next test needs the queue.
+    await vi.waitFor(() => expect(app.db.getJob(completed.body.jobId)?.status).toBe('failed'), { timeout: 10000 })
   })
 
   it('marks a game whose build went missing at start as not installed, and back when the folder returns', async () => {

@@ -91,6 +91,12 @@ export interface ExtractTargets {
 
 const SKIP_GAME = [/^cache\//i, /^saves\//i, /\.rpyb$/i, /(^|\/)\.ds_store$/i, /(^|\/)thumbs\.db$/i, /\.bak$/i]
 const KEEP_ROOT = /^(progressive_download\.txt|web-icon\.png)$/i
+/**
+ * Pictures of the themes and frames Ren'Py 6 kept in its common folder (theme.glow's
+ * _theme_glow/g_box.png and the like). Ren'Py 8 dropped them, so a game that uses them gets the
+ * ones its own download ships, in its game folder, where Ren'Py looks first.
+ */
+const OLD_COMMON = /^(?:renpy\/)?common\/(_(?:theme_[^/]+|roundrect|outline|compat|layout)\/[^/]+\.(?:png|jpe?g|gif|webp))$/i
 
 /** A build's presplash picture, by its file name or the end of its path. */
 export function isPresplash(path: string): boolean {
@@ -138,6 +144,7 @@ export async function extractProject(
   const gameEntries: Array<{ rel: string; e: SourceEntry }> = []
   const rpas: Array<{ rel: string; e: SourceEntry }> = []
   const rpycs: Array<{ rel: string; e: SourceEntry }> = []
+  const oldCommon: Array<{ rel: string; e: SourceEntry }> = []
   let total = 0
   const skipped = (g: string) => SKIP_GAME.some((r) => r.test(g)) || isExcluded(g) || targets.skip.has(g) || written.has(g.toLowerCase())
 
@@ -150,6 +157,8 @@ export async function extractProject(
       continue
     }
     if (!rel.startsWith('game/')) {
+      const old = OLD_COMMON.exec(rel)
+      if (old) oldCommon.push({ rel: old[1]!, e })
       if (KEEP_ROOT.test(rel) || (!rel.includes('/') && isPresplash(rel))) {
         await pipeline(await e.open(), createWriteStream(join(dest, rel)))
       }
@@ -173,6 +182,14 @@ export async function extractProject(
     if (/\.rpyc$/i.test(g)) rpycs.push({ rel: g, e })
     gameEntries.push({ rel: g, e })
     total += e.size
+  }
+  // The game's own files win over the old common pictures.
+  const own = new Set(gameEntries.map((x) => x.rel.toLowerCase()))
+  for (const x of oldCommon) {
+    if (own.has(x.rel.toLowerCase()) || skipped(x.rel)) continue
+    own.add(x.rel.toLowerCase())
+    gameEntries.push(x)
+    total += x.e.size
   }
 
   let done = 0

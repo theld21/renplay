@@ -2,6 +2,7 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import express, { Router, type NextFunction, type Request, type Response } from 'express'
 import { viewer } from '../accounts/context.js'
+import { decryptedRpgMaker } from './rpgmaker.js'
 import { BUILD_RE, baseOf, modBuild } from '../games/builds.js'
 import { isWebGame, type GameRow } from '../db.js'
 import { ENGINE_FILES } from '../engines.js'
@@ -120,7 +121,9 @@ export function createPlayRouter(s: Services): Router {
     } catch {
       entry = null
     }
-    if (!entry) throw new HttpError(404, 'Not found')
+    // A plain name for a file RPG Maker ships encrypted: the decrypted file.
+    const plain = entry ? null : await decryptedRpgMaker(reader, name)
+    if (!entry && !plain) throw new HttpError(404, 'Not found')
     // Other engines' games run in sandboxed frames, whose requests come from an opaque origin.
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('X-Content-Type-Options', 'nosniff')
@@ -128,7 +131,7 @@ export function createPlayRouter(s: Services): Router {
       // Sandbox every pack response, independent of MIME, suffixes or browser sniffing.
       // This follows direct navigations, secondary pages and popups too.
       // Never allow-same-origin or popup escape: game scripts must not gain account cookies.
-      res.setHeader('Content-Security-Policy', `sandbox allow-scripts allow-modals allow-pointer-lock allow-popups allow-downloads allow-forms; ${FRAME_ANCESTORS}`)
+      res.setHeader('Content-Security-Policy', `sandbox allow-scripts allow-modals allow-pointer-lock allow-popups allow-downloads allow-forms allow-orientation-lock; ${FRAME_ANCESTORS}`)
     }
     if (/\.html?$/i.test(name)) {
       const game = db.getGame(id)
@@ -139,11 +142,11 @@ export function createPlayRouter(s: Services): Router {
         return
       }
     }
-    const size = entry[1]
+    const size = entry ? entry[1] : plain!.length
     res.setHeader('Content-Type', mimeOf(name))
     res.setHeader('Cache-Control', 'private, no-store')
     res.setHeader('Accept-Ranges', 'bytes')
-    res.setHeader('ETag', `"${base}-${entry[0].toString(36)}"`)
+    if (entry) res.setHeader('ETag', `"${base}-${entry[0].toString(36)}"`)
     let from = 0
     let to = size - 1
     const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/)
@@ -161,6 +164,10 @@ export function createPlayRouter(s: Services): Router {
     res.setHeader('Content-Length', String(size ? to - from + 1 : 0))
     if (req.method === 'HEAD' || !size) {
       res.end()
+      return
+    }
+    if (!entry) {
+      res.end(plain!.subarray(from, to + 1))
       return
     }
     const s = reader.stream(entry, from, to)
