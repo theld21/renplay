@@ -35,6 +35,7 @@ release notes say what).
 - Installing a game that kept the save folder of a Ren'Py sample project no longer replaces another game with that folder.
 - Games made on Windows that ask for a file in another case (data/Items.json for data/items.json) find it.
 - Games made with Ren'Py 6 that use its old themes show their frames and buttons.
+- RPG Maker MZ games with many large pictures no longer close and start again on a phone after a while. Pictures shown long ago make room for new ones, and the game loads one again when it needs it.
 - RPG Maker MV and MZ games play from their PC download. Their windows and menus no longer stop the game, their music plays, encrypted pictures show when a plugin asks for the plain file, a phone gets the whole height, and on iPhone a game that looks for gamepads keeps running.
 - RPG Maker games whose plugins look for their save files on disk, as only the PC version can, start and find their saves.
 - RPG Maker games on a phone play their videos inside the game: animated scenes move in the game instead of opening full screen in the iPhone's own player and leaving a still picture. RPG Maker MV games on a phone play the music, sounds and movies of their PC download, which they used to look for in other formats and miss. A video the game turns down to nothing is silent on iPhone too, and Renplay's sound switch reaches videos while they play.
