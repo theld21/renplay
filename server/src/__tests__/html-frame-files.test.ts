@@ -190,6 +190,255 @@ it('mutes a video the game turns down to nothing, and a playing one outside the 
   expect(nativeMuted.call(stopped)).toBe(true)
 })
 
+/** A video that plays without a tap, with its time and events, as a game's looping scene. */
+const loopingVideo = () => class LoopingVideo {
+  tagName = 'VIDEO'
+  src = 'movies/scene.webm'
+  paused = true
+  ended = false
+  loop = false
+  error = null
+  currentTime = 0
+  duration = 1.5
+  private listeners: Record<string, Array<() => void>> = {}
+  addEventListener(type: string, listener: () => void) { (this.listeners[type] ??= []).push(listener) }
+  emit(type: string) { this.listeners[type]?.forEach((listener) => listener()) }
+  readyState = 4
+  // A video already playing (autoplay) fires no 'playing' when played again.
+  play() { const was = this.paused; this.paused = false; this.ended = false; if (was) this.emit('playing'); return Promise.resolve() }
+  pause() { this.paused = true; this.emit('pause') }
+}
+const iPhone = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X)', maxTouchPoints: 5 }
+
+it('keeps a looping video moving on an iPhone, turning back just before its end', async () => {
+  const page = htmlRuntime(1, (w) => { w.HTMLMediaElement = loopingVideo(); w.navigator = iPhone })
+  const frames = () => new Promise((r) => setTimeout(r, 60))
+  const scene = new page.window.HTMLMediaElement()
+  scene.loop = true
+  await scene.play()
+  // Its last picture: the lap turns back without waiting for the end.
+  scene.currentTime = 1.47
+  await vi.waitFor(() => expect(scene.currentTime).toBe(0))
+  scene.currentTime = 0.8
+  await frames()
+  expect(scene.currentTime).toBe(0.8)
+  // It ended or stopped although it loops: it starts again at once.
+  scene.currentTime = 1.5
+  scene.ended = true
+  scene.paused = true
+  scene.emit('ended')
+  expect([scene.currentTime, scene.paused, scene.ended]).toEqual([0, false, false])
+  scene.currentTime = 0.5
+  scene.paused = true
+  await vi.waitFor(() => expect(scene.paused).toBe(false))
+  // One the game paused, or does not loop, stays as it is.
+  scene.pause()
+  scene.currentTime = 1.5
+  scene.ended = true
+  scene.emit('ended')
+  await frames()
+  expect([scene.currentTime, scene.paused]).toEqual([1.5, true])
+  const once = new page.window.HTMLMediaElement()
+  await once.play()
+  once.currentTime = 1.49
+  await frames()
+  once.ended = true
+  once.paused = true
+  once.emit('ended')
+  await frames()
+  expect([once.currentTime, once.paused]).toEqual([1.49, true])
+})
+
+/** A video as a browser has it, with its state behind accessors, made by document.createElement. */
+const browserVideo = () => class BrowserVideo {
+  tagName = 'VIDEO'
+  readyState = 4
+  seeking = false
+  error = null
+  duration = 1.5
+  loop = false
+  preload = ''
+  playsInline = false
+  crossOrigin: string | null = null
+  private time = 0
+  private stopped = true
+  private done = false
+  private silent = false
+  private url = ''
+  private listeners: Record<string, Array<() => void>> = {}
+  get currentTime() { return this.time }
+  set currentTime(value: number) { this.time = value; this.done = false }
+  get paused() { return this.stopped }
+  get ended() { return this.done }
+  get muted() { return this.silent }
+  set muted(value: boolean) { this.silent = value }
+  get src() { return this.url }
+  set src(value: string) { this.url = value }
+  setAttribute() {}
+  removeAttribute() { this.url = '' }
+  load() {}
+  addEventListener(type: string, listener: () => void) { (this.listeners[type] ??= []).push(listener) }
+  play() { this.stopped = false; this.done = false; this.listeners['playing']?.forEach((l) => l()); return Promise.resolve() }
+  pause() { this.stopped = true; this.listeners['pause']?.forEach((l) => l()) }
+}
+
+it('laps a looping clip on an iPhone with a twin held on its first picture, so it never stops', async () => {
+  const Video = browserVideo()
+  const made: any[] = []
+  const drawn: any[] = []
+  class CanvasRenderingContext2D { drawImage(source: unknown) { drawn.push(source) } }
+  const page = htmlRuntime(1, (w) => {
+    Object.assign(w, { HTMLMediaElement: Video, CanvasRenderingContext2D, navigator: iPhone })
+    w.document.createElement = (tag: string) => { const v = tag === 'video' ? new Video() : { tagName: tag.toUpperCase() }; made.push(v); return v }
+  })
+  const own = Object.getOwnPropertyDescriptor(Video.prototype, 'currentTime')!.get!
+  const ownPaused = Object.getOwnPropertyDescriptor(Video.prototype, 'paused')!.get!
+  const scene = page.window.document.createElement('video')
+  scene.src = 'movies/scene.webm'
+  scene.loop = true
+  await scene.play()
+  await vi.waitFor(() => expect(made.length).toBe(2))
+  const twin = made[1]
+  // It played a moment, silent, to load its first picture, and waits on it with the game's sound.
+  await vi.waitFor(() => expect(twin.paused).toBe(true))
+  expect([twin.src, twin.preload, twin.currentTime, twin.muted]).toEqual(['movies/scene.webm', 'auto', 0, false])
+  const ctx = new page.window.CanvasRenderingContext2D()
+  // The lap: the twin plays on from its first picture, the game's video goes back out of sight.
+  scene.currentTime = 1.47
+  await vi.waitFor(() => expect(ownPaused.call(twin)).toBe(false))
+  expect([ownPaused.call(scene), own.call(scene), scene.paused, scene.currentTime]).toEqual([true, 0, false, 0])
+  ctx.drawImage(scene, 0, 0)
+  expect(drawn.at(-1)).toBe(twin)
+  // The next lap swaps back.
+  scene.currentTime = 1.48
+  await vi.waitFor(() => expect(ownPaused.call(scene)).toBe(false))
+  expect([ownPaused.call(twin), own.call(twin)]).toEqual([true, 0])
+  ctx.drawImage(scene, 0, 0)
+  expect(drawn.at(-1)).toBe(scene)
+  // Paused by the game during the twin's lap: its place carries over to the game's video.
+  scene.currentTime = 1.47
+  await vi.waitFor(() => expect(ownPaused.call(twin)).toBe(false))
+  scene.currentTime = 0.6
+  scene.pause()
+  expect([ownPaused.call(twin), own.call(scene), scene.paused]).toEqual([true, 0.6, true])
+  ctx.drawImage(scene, 0, 0)
+  expect(drawn.at(-1)).toBe(scene)
+  // The game's pause lets the twin go, with its clip: the next play makes another.
+  expect(twin.src).toBe('')
+  // A new source: the twin goes.
+  await scene.play()
+  await vi.waitFor(() => expect(made.length).toBe(3))
+  scene.src = 'movies/other.webm'
+  await vi.waitFor(() => expect(made[2].src).toBe(''))
+})
+
+it('starts a looping clip again when its time stands still while it plays', async () => {
+  const page = htmlRuntime(1, (w) => { w.HTMLMediaElement = loopingVideo(); w.navigator = iPhone })
+  const scene = new page.window.HTMLMediaElement()
+  scene.loop = true
+  await scene.play()
+  scene.currentTime = 0.6
+  await new Promise((r) => setTimeout(r, 300))
+  expect(scene.currentTime).toBe(0.6)
+  await vi.waitFor(() => expect(scene.currentTime).toBe(0), { timeout: 2000 })
+})
+
+it('keeps a clip the game made with autoplay looping, though its play() fired no playing', async () => {
+  const page = htmlRuntime(1, (w) => { w.HTMLMediaElement = loopingVideo(); w.navigator = iPhone })
+  const scene = new page.window.HTMLMediaElement()
+  // It started by itself; the game sets the loop and calls play() on a playing video.
+  scene.paused = false
+  scene.loop = true
+  await scene.play()
+  // An iPhone leaves it playing on its last picture.
+  scene.currentTime = 1.5
+  await vi.waitFor(() => expect(scene.currentTime).toBe(0))
+})
+
+it('plays a looping clip on from where it is when the phone stops it midway', async () => {
+  const page = htmlRuntime(1, (w) => { w.HTMLMediaElement = loopingVideo(); w.navigator = iPhone })
+  const scene = new page.window.HTMLMediaElement()
+  scene.loop = true
+  await scene.play()
+  scene.currentTime = 0.4
+  scene.paused = true
+  await vi.waitFor(() => expect(scene.paused).toBe(false))
+  expect(scene.currentTime).toBe(0.4)
+})
+
+it('leaves looping to the browser on a computer', async () => {
+  const page = htmlRuntime(1, (w) => { w.HTMLMediaElement = loopingVideo(); w.navigator = { userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' } })
+  const scene = new page.window.HTMLMediaElement()
+  scene.loop = true
+  await scene.play()
+  scene.currentTime = 1.49
+  scene.ended = true
+  scene.paused = true
+  scene.emit('ended')
+  await new Promise((r) => setTimeout(r, 60))
+  expect([scene.currentTime, scene.paused]).toEqual([1.49, true])
+})
+
+it('plays media the phone stopped for another tab again when the game is back, unless the game paused it', async () => {
+  const Video = loopingVideo()
+  // The phone stops it itself, without the game's pause().
+  const systemPause = Video.prototype.pause
+  const page = htmlRuntime(1, (w) => { w.HTMLMediaElement = Video; w.navigator = iPhone })
+  const doc = page.window.document
+  const scene = new page.window.HTMLMediaElement()
+  const paused = new page.window.HTMLMediaElement()
+  scene.loop = true
+  await scene.play()
+  await paused.play()
+  paused.pause()
+  doc.hidden = true
+  doc.visibilityState = 'hidden'
+  page.fire('visibilitychange')
+  systemPause.call(scene)
+  // While hidden it stays stopped.
+  await new Promise((r) => setTimeout(r, 60))
+  expect(scene.paused).toBe(true)
+  doc.hidden = false
+  doc.visibilityState = 'visible'
+  page.fire('visibilitychange')
+  expect([scene.paused, paused.paused]).toEqual([false, true])
+})
+
+it('wakes the game\'s sound when the page is back from another tab, unless the game suspended it', () => {
+  class AudioNode {
+    constructor(public context: any) {}
+    connect(_target: unknown) { return this }
+    disconnect() {}
+  }
+  class AudioDestinationNode extends AudioNode {}
+  class AudioContext {
+    state = 'running'
+    destination = new AudioDestinationNode(this)
+    createGain() { return Object.assign(new AudioNode(this), { gain: { value: 1 } }) }
+    resume() { this.state = 'running'; return Promise.resolve() }
+    suspend() { this.state = 'suspended'; return Promise.resolve() }
+  }
+  const page = htmlRuntime(1, (w) => { Object.assign(w, { AudioNode, AudioDestinationNode, AudioContext }) })
+  const music = new page.window.AudioContext()
+  new page.window.AudioNode(music).connect(music.destination)
+  const quiet = new page.window.AudioContext()
+  new page.window.AudioNode(quiet).connect(quiet.destination)
+  quiet.suspend()
+  // The phone interrupts both while another tab is in front.
+  music.state = 'interrupted'
+  quiet.state = 'interrupted'
+  page.fire('visibilitychange')
+  expect([music.state, quiet.state]).toEqual(['running', 'interrupted'])
+  music.state = 'suspended'
+  page.fire('touchend')
+  expect(music.state).toBe('running')
+  // The game's own resume counts again.
+  quiet.resume()
+  quiet.state = 'interrupted'
+  page.fire('pageshow')
+  expect(quiet.state).toBe('running')
+})
+
 it('answers no gamepads when the browser refuses the frame, instead of stopping the game', () => {
   const pads = [{ id: 'pad' }]
   let refuse = true

@@ -6,6 +6,7 @@
  * - post: a message to the player, the page that frames the game.
  * - Muting like a browser tab: every Web Audio output goes through a gain node set
  *   to 0 while muted, so the game's own volume settings stay as they are.
+ * - Waking that sound when the page comes back from another tab or app.
  * - Esc held in fullscreen: with Keyboard Lock, holding Esc leaves fullscreen, and
  *   the player shows for how long. Capture runs before the game sees the key.
  */
@@ -70,6 +71,7 @@ if (typeof AudioNode !== 'undefined' && typeof AudioDestinationNode !== 'undefin
   var outputFor = function (dest) {
     var g = outputs.get(dest)
     if (!g) {
+      keepAwake(dest.context)
       g = dest.context.createGain()
       g.gain.value = muted ? 0 : 1
       nativeConnect.call(g, dest)
@@ -97,6 +99,48 @@ function setAudioMuted(on) {
 }
 function isMuted() {
   return muted
+}
+
+// ------------------------------------------------------------------ sound after another tab
+
+// An iPhone stops a page's Web Audio when another tab or app comes in front, and can leave it
+// 'interrupted' when the page is back. Games only wake it from 'suspended', so they stayed silent.
+// Every context that plays through the mute switch wakes when the page shows again and at each tap,
+// unless the game suspended it itself.
+var contexts = []
+var suspendedByGame = typeof WeakSet === 'function' ? new WeakSet() : null
+var AudioContextClass = window.AudioContext || window.webkitAudioContext
+var nativeResume = AudioContextClass && AudioContextClass.prototype.resume
+if (nativeResume && suspendedByGame && typeof AudioContextClass.prototype.suspend === 'function') {
+  var nativeSuspend = AudioContextClass.prototype.suspend
+  AudioContextClass.prototype.suspend = function () {
+    suspendedByGame.add(this)
+    return nativeSuspend.apply(this, arguments)
+  }
+  AudioContextClass.prototype.resume = function () {
+    suspendedByGame.delete(this)
+    return nativeResume.apply(this, arguments)
+  }
+}
+function keepAwake(ctx) {
+  if (ctx && contexts.indexOf(ctx) < 0) contexts.push(ctx)
+}
+function wakeAudio() {
+  if (document.hidden || !nativeResume) return
+  contexts.forEach(function (ctx) {
+    if (ctx.state === 'running' || ctx.state === 'closed' || (suspendedByGame && suspendedByGame.has(ctx))) return
+    try {
+      var woken = nativeResume.call(ctx)
+      if (woken && typeof woken.catch === 'function') woken.catch(function () {})
+    } catch (e) {}
+  })
+}
+if (nativeResume && typeof document.addEventListener === 'function') {
+  ;['touchend', 'pointerup', 'click', 'keydown', 'visibilitychange'].forEach(function (type) {
+    document.addEventListener(type, wakeAudio, true)
+  })
+  window.addEventListener('pageshow', wakeAudio)
+  window.addEventListener('focus', wakeAudio)
 }
 
 // ------------------------------------------------------------------ fullscreen and Esc
