@@ -469,6 +469,41 @@ it('lets RPG Maker on a phone use the frame\'s whole height', () => {
   expect(updated).toEqual(['scale for 390', 'elements'])
 })
 
+it('shrinks an RPG Maker game with stretching off to fit a frame too small for it, and keeps its size where it fits', () => {
+  const graphics = (frame: [number, number]) => ({
+    _canvas: {},
+    _width: 1280,
+    _height: 720,
+    _defaultScale: 1,
+    _realScale: 1,
+    // A plugin turned stretching off until a player saves options.
+    _stretchEnabled: false,
+    _stretchWidth: () => frame[0],
+    _stretchHeight: () => frame[1],
+    _updateRealScale() { this._realScale = this._stretchEnabled ? Math.min(frame[0] / 1280, frame[1] / 720) : this._defaultScale },
+    _updateAllElements() {},
+  })
+  const run = (frame: [number, number]) => {
+    const page = htmlRuntime(1, (w) => {
+      w.document.documentElement = { clientHeight: frame[1] }
+      w.document.getElementsByTagName = () => []
+      Object.assign(w, { Graphics: graphics(frame), Utils: { RPGMAKER_NAME: 'MZ' } })
+    })
+    page.fire('load')
+    return page.window.Graphics
+  }
+  // A phone's frame.
+  const phone = run([610, 343])
+  expect(phone._realScale).toBeCloseTo(343 / 720)
+  // A big window: its own size, as the player chose.
+  const big = run([1920, 1080])
+  expect(big._realScale).toBe(1)
+  // Stretching on: the engine's own scale.
+  big._stretchEnabled = true
+  big._updateRealScale()
+  expect(big._realScale).toBe(1.5)
+})
+
 it('gives RPG Maker MV on a phone the sound and movie files of the PC download it can play', () => {
   const mv = (ogg: boolean, webm: boolean, plugin = false) => {
     const page = htmlRuntime(1, (w) => {

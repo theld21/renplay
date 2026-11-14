@@ -526,6 +526,18 @@
     G._stretchHeight = function () {
       return document.documentElement.clientHeight || window.innerHeight
     }
+    // With stretching off the game is drawn at its own size, which a phone's frame (or a small
+    // window) cannot hold: some games turn it off until a player saves options. It still shrinks to
+    // fit; where it fits, it keeps its own size.
+    var realScale = G._updateRealScale
+    if (typeof realScale === 'function' && typeof G._stretchWidth === 'function') {
+      G._updateRealScale = function () {
+        realScale.apply(this, arguments)
+        if (this._stretchEnabled || !(this._width > 0) || !(this._height > 0)) return
+        var fit = Math.min(this._stretchWidth() / this._width, this._stretchHeight() / this._height)
+        if (fit > 0 && fit < this._realScale) this._realScale = fit
+      }
+    }
     try {
       if (G._canvas && typeof G._updateRealScale === 'function') {
         G._updateRealScale()
