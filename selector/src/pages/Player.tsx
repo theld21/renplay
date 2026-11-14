@@ -44,7 +44,7 @@ import { useDragPill } from './player/useDragPill'
 import { usePad } from './player/vpad/usePad'
 import VirtualPad from './player/vpad/VirtualPad'
 import PadPanel from './player/vpad/PadPanel'
-import { useElementSize, useSafeInsets, useWakeLock } from './player/useScreen'
+import { useElementSize, useSafeInsets, useNoPinch, useWakeLock } from './player/useScreen'
 import GameOptions, { type GameOptionsState } from './player/GameOptions'
 import { Bar, Pill } from '../lantern/controls'
 import { useModal } from '../lantern/modal'
@@ -133,6 +133,7 @@ export default function Player() {
   const { fullscreen, coversNotch, escLocked, escHint, escHeld, setEscHeld, toggleFullscreen } = useFullscreen(shellRef, fsMode, touch, send, () => setPanel('fullscreen'))
   const stage = useElementSize(stageRef, `${game?.id}:${isLoading}`)
   const insets = useSafeInsets()
+  useNoPinch()
   useWakeLock(ready)
   usePlayTime(ready && !exiting && !failed, gameId, userId, sandboxed, frameRef, () => setSignedOut(true))
   const telemetry = useTelemetry(gameId, userId, { ready, online, fullscreen, failed })
@@ -339,14 +340,17 @@ export default function Player() {
   }, [ready, escLocked, drawer, guide, sandboxed])
 
   // Space the game keeps clear of: a MacBook's notch in fullscreen, a phone's
-  // camera cutout (the sides in landscape, the top in portrait). The home
-  // indicator is only a thin line over the game, so the game may run under it.
+  // camera cutout (the sides in landscape, the top in portrait) and its home
+  // indicator: an iPhone keeps taps near that line for its own swipe, so a
+  // game's buttons in the bottom corners could not be pressed under it. Held
+  // sideways it keeps the top edge too (the swipes for notifications and
+  // controls): the game then stays as far from it as from the bottom.
   const avoid = prefs.avoidNotch
   const landscape = stage.w >= stage.h
   const pad = {
-    top: Math.max(fullscreen && avoid && notch && coversNotch ? notch : 0, avoid && !landscape ? insets.top : 0),
+    top: Math.max(fullscreen && avoid && notch && coversNotch ? notch : 0, avoid ? (landscape ? insets.bottom : insets.top) : 0),
     right: avoid && landscape ? insets.right : 0,
-    bottom: 0,
+    bottom: avoid ? insets.bottom : 0,
     left: avoid && landscape ? insets.left : 0,
   }
   const area = { w: Math.max(0, stage.w - pad.left - pad.right), h: Math.max(0, stage.h - pad.top - pad.bottom) }

@@ -170,17 +170,17 @@ export function DisplayPanel({
       </div>
       {hasCutout && (
         <div>
-          <p className="mb-2 text-xs font-medium text-zinc-400">Camera cutout</p>
+          <p className="mb-2 text-xs font-medium text-zinc-400">Camera and home bar</p>
           <Switch
             checked={prefs.avoidNotch}
             onChange={(v) => setPrefs({ ...prefs, avoidNotch: v })}
-            label="Keep the game clear of the camera"
+            label="Keep the game clear of the camera and the home bar"
             hint={
               notch > 0
                 ? fullscreen && !coversNotch
                   ? 'Your browser already keeps the notch area black in fullscreen.'
                   : `In fullscreen the top ${notch}px strip below the camera stays black when this is on. Off uses the full screen height.`
-                : 'On keeps the game clear of the camera cutout. Off uses the whole screen.'
+                : 'On keeps the game clear of the camera cutout, the home bar and, held sideways, the top edge. Off uses the whole screen.'
             }
           />
         </div>

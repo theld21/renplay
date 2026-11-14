@@ -31,6 +31,32 @@ export function useSafeInsets(): Insets {
   return insets
 }
 
+/**
+ * A pinch zooms nothing while a game is played: zooming the page made an iPhone draw the game's
+ * canvas again at the larger size, run out of memory and load the game again. Pinches inside the
+ * game are stopped by the game's runtime (runtime/renplay-player.js).
+ */
+export function useNoPinch(): void {
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]')
+    const was = meta?.content
+    if (meta && was) meta.content = `${was.replace(/,\s*(maximum-scale|user-scalable)=[^,]*/g, '')}, maximum-scale=1, user-scalable=no`
+    const stop = (e: Event) => e.preventDefault()
+    const twoFingers = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault()
+    }
+    document.addEventListener('gesturestart', stop, { passive: false })
+    document.addEventListener('gesturechange', stop, { passive: false })
+    document.addEventListener('touchmove', twoFingers, { passive: false })
+    return () => {
+      if (meta && was) meta.content = was
+      document.removeEventListener('gesturestart', stop)
+      document.removeEventListener('gesturechange', stop)
+      document.removeEventListener('touchmove', twoFingers)
+    }
+  }, [])
+}
+
 /** Keeps the screen on while `on` (reading a long scene is not "idle"). */
 export function useWakeLock(on: boolean): void {
   useEffect(() => {

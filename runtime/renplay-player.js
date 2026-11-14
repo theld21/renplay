@@ -7,6 +7,7 @@
  * - Muting like a browser tab: every Web Audio output goes through a gain node set
  *   to 0 while muted, so the game's own volume settings stay as they are.
  * - Waking that sound when the page comes back from another tab or app.
+ * - No pinch zoom: zooming made an iPhone draw the game larger and run out of memory.
  * - Esc held in fullscreen: with Keyboard Lock, holding Esc leaves fullscreen, and
  *   the player shows for how long. Capture runs before the game sees the key.
  */
@@ -141,6 +142,27 @@ if (nativeResume && typeof document.addEventListener === 'function') {
   })
   window.addEventListener('pageshow', wakeAudio)
   window.addEventListener('focus', wakeAudio)
+}
+
+// ------------------------------------------------------------------ no pinch zoom
+
+// A pinch on a phone zooms the whole player page, and the browser draws the game's canvas again at
+// the zoomed size: on an iPhone that is more memory than a tab may use, so the page was killed and
+// the game loaded again. Games are not zoomed: two fingers move nothing. The game still gets the
+// touches; only the browser's zoom is stopped.
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  var noZoom = function (e) {
+    e.preventDefault()
+  }
+  document.addEventListener('gesturestart', noZoom, { passive: false })
+  document.addEventListener('gesturechange', noZoom, { passive: false })
+  document.addEventListener(
+    'touchmove',
+    function (e) {
+      if (e.touches && e.touches.length > 1) e.preventDefault()
+    },
+    { passive: false },
+  )
 }
 
 // ------------------------------------------------------------------ fullscreen and Esc
