@@ -1,6 +1,6 @@
 {
-  "name": "Renplay",
-  "short_name": "Renplay",
+  "name": "Console",
+  "short_name": "Console",
   "start_url": "/",
   "display": "standalone",
   "display_override": [
@@ -29,6 +29,6 @@
       "purpose": "any"
     }
   ],
-  "description": "Your Ren'Py and HTML games in the browser, with saves on your own server.",
+  "description": "Games in the browser, with saves on your own server.",
   "orientation": "any"
 }

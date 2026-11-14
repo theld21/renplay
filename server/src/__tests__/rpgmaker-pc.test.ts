@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { htmlRuntime } from './runtime-browser.js'
 
 // Plugins of RPG Maker PC downloads that use NW.js without checking for it first.
@@ -65,4 +65,19 @@ it('sends a picture of the title screen once it has stood a few seconds, once', 
   expect(pictures()).toEqual([])
   await checks(4)
   expect(pictures()).toEqual([expect.objectContaining({ data: 'data:image/jpeg;base64,AAAA' })])
+})
+
+it('sends a picture of the screen as it is now when the player asks, for the thumbnail', async () => {
+  let scene: object | null = {}
+  const page = htmlRuntime(1, (w) => {
+    w.SceneManager = { get _scene() { return scene }, snap: () => ({ canvas: { toDataURL: () => 'data:image/jpeg;base64,BBBB' } }) }
+    w.document.getElementsByTagName = () => []
+  })
+  const snaps = () => page.post.mock.calls.map(([m]) => m).filter((m) => m.type === 'renplay:snap')
+  page.message({ type: 'renplay:snap', id: 'one' })
+  await vi.waitFor(() => expect(snaps()).toEqual([expect.objectContaining({ id: 'one', data: 'data:image/jpeg;base64,BBBB' })]))
+  // No scene and no canvas: no picture, and the player hears so.
+  scene = null
+  page.message({ type: 'renplay:snap', id: 'two' })
+  await vi.waitFor(() => expect(snaps()[1]).toEqual(expect.objectContaining({ id: 'two', data: null })))
 })

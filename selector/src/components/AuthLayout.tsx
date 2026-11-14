@@ -19,7 +19,7 @@ export default function AuthLayout({ children, wide = false }: { children: React
         <div className="box" style={wide ? { maxWidth: 448 } : undefined}>
           {children}
           <p className="center xs muted" style={{ marginTop: 28 }}>
-            Renplay{data?.version ? ` ${data.version}` : ''} · The Renplay Team
+            Console{data?.version ? ` ${data.version}` : ''}
           </p>
         </div>
       </div>

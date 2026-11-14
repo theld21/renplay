@@ -34,6 +34,9 @@ const UP_NEXT_MAX = 8
 /** The shelves' See all links: what each list is called, for the chip that shows it and takes it off. */
 const FILTERS: Record<string, string> = { favorites: 'Favourites', added: 'Added this week', failed: 'Not finished installing' }
 
+/** A game the person marked Finished: it waits in its own section at the end of the library. */
+const isFinished = (g: Game) => g.playStatus === 'finished' || !!g.finishedAt
+
 /** The one meta line under a tile: heart, Beta, when it was played. */
 function tileMeta(g: Game) {
   if (g.job) return <span>Installing</span>
@@ -192,18 +195,17 @@ export default function Library() {
     // Games of the same rank stay in the order the person chose.
     .sort(order(by === 'match' ? sort : by))
   if (by === 'match' && hits) shown.sort((a, b) => hits.get(a)!.tier - hits.get(b)!.tier)
+  // Finished games leave All games for the Finished section after it, in the same order.
+  const finishedShown = shown.filter(isFinished)
+  const playingShown = shown.filter((g) => !isFinished(g))
   // The list's growth belongs to the list, not to the words typed: it is kept while they change.
-  const rows = useGrowingGrid(`library:${filter}|${tags}|${sort}|${searchSort}`, shown.length)
+  const rows = useGrowingGrid(`library:${filter}|${tags}|${sort}|${searchSort}`, playingShown.length)
   // Up next: games in play. Stalled, Dropped and Finished retire a game, Not now hides it until it is played again.
   const upNext = all
     .filter((g) => g.status === 'installed' && !g.job && g.lastPlayedAt && !g.finishedAt && !['stalled', 'dropped', 'finished'].includes(g.playStatus ?? '') && !(g.notNowAt && g.notNowAt > g.lastPlayedAt))
     .sort((a, b) => b.lastPlayedAt!.localeCompare(a.lastPlayedAt!))
     .slice(0, UP_NEXT_MAX)
   const favorites = all.filter((g) => g.favoriteAt).sort((a, b) => b.favoriteAt!.localeCompare(a.favoriteAt!))
-  const added = all.filter((g) => !g.lastPlayedAt && g.status === 'installed' && !g.job && Date.now() - Date.parse(g.createdAt) < 7 * 86400000).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-  // A shelf of new games says something only while most of the library is not new.
-  // And never when it holds the whole library: All games below shows the same.
-  const addedShelf = added.length <= Math.max(4, all.length / 2) && added.length < all.length ? added : []
   // A failed install a person dismissed stays out of the way on this device.
   const [dismissed, setDismissed] = useState<string[]>(() => {
     try {
@@ -296,11 +298,6 @@ export default function Library() {
               <GameTile key={g.id} game={g} />
             ))}
           </Shelf>
-          <Shelf title={addedShelf.every((g) => new Date(g.createdAt).toDateString() === new Date().toDateString()) ? 'Added today' : 'Added this week'} count={addedShelf.length} href="/?filter=added&sort=added">
-            {addedShelf.slice(0, 12).map((g) => (
-              <GameTile key={g.id} game={g} />
-            ))}
-          </Shelf>
           <Shelf title="Not finished installing" count={failedShown.length} href="/?filter=failed">
             {failedShown.slice(0, 12).map((job) => (
               <div key={job.id} className="panel" style={{ width: 'calc(var(--tile-w) * 2 + var(--gap))', flex: 'none' }}>
@@ -331,7 +328,7 @@ export default function Library() {
       <section className="sec">
         <div className="sec-h">
           <h2 className="h2">
-            All games<span className="n tnum">{countText(shown.length, all.length, active)}</span>
+            All games<span className="n tnum">{countText(playingShown.length, all.length - all.filter(isFinished).length, active)}</span>
           </h2>
           <Link to="/catalog">Find more in the catalog</Link>
         </div>
@@ -359,7 +356,7 @@ export default function Library() {
         </div>
         <div className={`results ${active ? 'held' : ''}`.trim()}>
           <div className="grid" data-row ref={rows.grid}>
-            {shown.slice(0, rows.shown).map((g) => (
+            {playingShown.slice(0, rows.shown).map((g) => (
               <GameTile key={g.id} game={g} hit={hits?.get(g)} />
             ))}
           </div>
@@ -380,6 +377,20 @@ export default function Library() {
           )}
         </div>
       </section>
+      {!!finishedShown.length && !rows.more && (
+        <section className="sec">
+          <div className="sec-h">
+            <h2 className="h2">
+              Finished<span className="n tnum">{finishedShown.length}</span>
+            </h2>
+          </div>
+          <div className="grid" data-row>
+            {finishedShown.map((g) => (
+              <GameTile key={g.id} game={g} hit={hits?.get(g)} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

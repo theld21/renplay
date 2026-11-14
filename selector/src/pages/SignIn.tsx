@@ -18,9 +18,9 @@ export default function SignIn() {
       <AuthLayout>
         <div className="logo" style={{ justifyContent: 'center', marginBottom: 26 }}>
           <img src="/favicon.svg" alt="" />
-          Renplay
+          Console
         </div>
-        <h1 className="h1 center" style={{ fontSize: 26 }}>Try Renplay</h1>
+        <h1 className="h1 center" style={{ fontSize: 26 }}>Try Console</h1>
         <p className="lead center" style={{ margin: '8px auto 0' }}>
           A demo with free games. Play, save and pick up on another device. It starts fresh every few hours.
         </p>
@@ -59,7 +59,7 @@ export default function SignIn() {
     <AuthLayout>
       <div className="logo" style={{ justifyContent: 'center', marginBottom: 26 }}>
         <img src="/favicon.svg" alt="" />
-        Renplay
+        Console
       </div>
       <h1 className="h1 center" style={{ fontSize: 26 }}>Sign in</h1>
       <p className="lead center" style={{ margin: '8px auto 0' }}>

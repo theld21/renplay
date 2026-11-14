@@ -51,9 +51,9 @@ export default function GamePage() {
   useRoom({ game: game ?? null, quiet: !game })
   // The app's titles: Renplay, or the game's name with it.
   useEffect(() => {
-    document.title = game ? `${game.title} · Renplay` : 'Renplay'
+    document.title = 'Console'
     return () => {
-      document.title = 'Renplay'
+      document.title = 'Console'
     }
   }, [game?.title])
 
@@ -317,7 +317,7 @@ function PlayPane({ game, onSaves }: { game: Game; onSaves?: () => void }) {
                 onChange={(value) => void save('status', { status: value === game.playStatus ? '' : value })}
                 options={STATUS_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
               />
-              <p className="xs muted" style={{ marginTop: 8 }}>Stalled, Dropped and Finished leave Up next. Your saves are kept.</p>
+              <p className="xs muted" style={{ marginTop: 8 }}>Stalled, Dropped and Finished leave Up next. Finished games move to Finished at the end of your library. Your saves are kept.</p>
             </div>
             <div>
               <h3 className="small muted-2" style={{ fontWeight: 650, marginBottom: 4 }}>Your rating</h3>

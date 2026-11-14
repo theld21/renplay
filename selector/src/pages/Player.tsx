@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   CloudOff,
   Expand,
+  ImagePlus,
   Loader2,
   RefreshCw,
   Shrink,
@@ -38,6 +39,8 @@ import { useHtmlSaves, useSaving } from './player/useSaving'
 import { usePlayTime } from './player/usePlayTime'
 import { useTelemetry } from './player/useTelemetry'
 import { useTitlePicture } from './player/useTitlePicture'
+import { useThumbnail } from './player/useThumbnail'
+import { useDragPill } from './player/useDragPill'
 import { usePad } from './player/vpad/usePad'
 import VirtualPad from './player/vpad/VirtualPad'
 import PadPanel from './player/vpad/PadPanel'
@@ -68,8 +71,8 @@ export default function Player() {
   const online = useOnline()
 
   useEffect(() => {
-    document.title = game ? `${game.title} · Renplay` : 'Renplay'
-    return () => { document.title = 'Renplay' }
+    document.title = 'Console'
+    return () => { document.title = 'Console' }
   }, [game?.title])
 
   const shellRef = useRef<HTMLDivElement>(null)
@@ -134,6 +137,8 @@ export default function Player() {
   usePlayTime(ready && !exiting && !failed, gameId, userId, sandboxed, frameRef, () => setSignedOut(true))
   const telemetry = useTelemetry(gameId, userId, { ready, online, fullscreen, failed })
   useTitlePicture(game, ready, frameRef, send)
+  const thumbnail = useThumbnail(game?.id, frameRef, send, toast)
+  const pill = useDragPill()
   const vpad = usePad(game, touch, send)
   // On an iPhone in Safari, once the game has started and never while it loads: once, how to get full screen.
   useEffect(() => {
@@ -428,8 +433,9 @@ export default function Player() {
       {ready && !drawer && (
         <div
           className={cx('rp-pills', freshPill && 'fresh')}
-          // HTML games often put their own menu in the top left (SugarCube's sidebar toggle).
-          style={sandboxed ? { top: 10 + Math.max(insets.top, pad.top), right: 10 + insets.right } : { top: 10 + Math.max(insets.top, pad.top), left: 10 + insets.left }}
+          // HTML games often put their own menu in the top left (SugarCube's sidebar toggle). Dragged, it stays where it was put.
+          style={{ ...(pill.style ?? (sandboxed ? { top: 10 + Math.max(insets.top, pad.top), right: 10 + insets.right } : { top: 10 + Math.max(insets.top, pad.top), left: 10 + insets.left })), touchAction: 'none' }}
+          {...pill.handlers}
         >
           <button type="button" className="rp-pill logo" onClick={openDrawer} aria-label="Open the player menu">
             <span className="mark" aria-hidden="true" />
@@ -532,6 +538,9 @@ export default function Player() {
                   {fullscreen ? 'Leave full screen' : 'Full screen'}
                 </Pill>
               )}
+              <Pill size="sm" icon={thumbnail.busy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />} onClick={() => void thumbnail.take()}>
+                Set as thumbnail
+              </Pill>
               {!sandboxed && <GameOptions options={gameOptions} onChange={sendOptions} onAccessibility={() => send({ type: 'renplay:accessibility' })} />}
               <PadPanel pad={vpad} gameId={gameId} onEdit={() => { setDrawer(null); vpad.setEditing(true) }} />
               <DisplayPanel
