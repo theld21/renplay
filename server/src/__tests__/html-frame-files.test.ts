@@ -504,6 +504,75 @@ it('shrinks an RPG Maker game with stretching off to fit a frame too small for i
   expect(big._realScale).toBe(1.5)
 })
 
+it('keeps where an RPG Maker MZ game was left in its Autosave slot, and never over a newer save or mid-message', async () => {
+  const saved: Record<string, string> = {}
+  let busy = false
+  let eventRunning = true
+  const page = htmlRuntime(1, (w) => {
+    w.document.getElementsByTagName = () => []
+    class Scene_Map { update() {} }
+    class Game_Interpreter { command101() { return 'shown' } }
+    Object.assign(w, {
+      Utils: { RPGMAKER_NAME: 'MZ' },
+      Scene_Map,
+      Game_Interpreter,
+      SceneManager: { _scene: new Scene_Map() },
+      JsonEx: { stringify: (o: unknown) => JSON.stringify(o) },
+      $gameSystem: { _saveCount: 3, isAutosaveEnabled: () => true, isSaveEnabled: () => true, onBeforeSave() { this._saveCount++ } },
+      $gamePlayer: { isTransferring: () => false },
+      $gameMessage: { isBusy: () => busy },
+      $gameMap: { isEventRunning: () => eventRunning },
+      story: { line: 1 },
+      DataManager: {
+        _globalInfo: [null, { timestamp: 1 }],
+        isBattleTest: () => false,
+        isEventTest: () => false,
+        makeSaveContents: () => ({ line: w.story.line }),
+        makeSavefileInfo: () => ({ timestamp: Date.now() }),
+        makeSavename: (id: number) => `file${id}`,
+        setupNewGame() {},
+        extractSaveContents() {},
+      },
+      StorageManager: {
+        jsonToZip: async (json: string) => `zip:${json}`,
+        saveZip: async (name: string, zip: string) => { saved[name] = zip },
+        saveObject: async (name: string, o: unknown) => { saved[name] = JSON.stringify(o) },
+      },
+    })
+  })
+  page.fire('load')
+  const w = page.window
+  // Just before a line of text shows, the game is calm: that point is kept.
+  expect(new w.Game_Interpreter().command101()).toBe('shown')
+  w.story.line = 2
+  await page.flush()
+  expect(saved.file0).toBe('zip:{"line":1}')
+  expect(JSON.parse(saved.global)[1]).toEqual({ timestamp: 1 })
+  // Taking it counts no save the game could see.
+  expect(w.$gameSystem._saveCount).toBe(3)
+  // Nothing new: nothing is written again.
+  delete saved.file0
+  await page.flush()
+  expect(saved.file0).toBeUndefined()
+  // A loaded save leaves the old point behind.
+  w.DataManager.extractSaveContents()
+  await page.flush()
+  expect(saved.file0).toBeUndefined()
+  // A message on screen is not calm.
+  busy = true
+  new w.Game_Interpreter().command101()
+  new w.Scene_Map().update()
+  await page.flush()
+  expect(saved.file0).toBeUndefined()
+  // On the map with no event running it is, but the game's own Autosave is newer: it stays.
+  busy = false
+  eventRunning = false
+  w.DataManager._globalInfo[0] = { timestamp: Date.now() + 60_000 }
+  new w.Scene_Map().update()
+  await page.flush()
+  expect(saved.file0).toBeUndefined()
+})
+
 it('gives RPG Maker MV on a phone the sound and movie files of the PC download it can play', () => {
   const mv = (ogg: boolean, webm: boolean, plugin = false) => {
     const page = htmlRuntime(1, (w) => {

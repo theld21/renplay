@@ -357,11 +357,12 @@
         Object.defineProperty(window, k, { value: IDB[k], configurable: true, writable: true })
       } catch (e) {}
     })
+    // An RPG Maker MZ game left in the middle of a scene keeps where it was (renplay-html-resume.js).
     window.addEventListener('pagehide', function () {
-      flushIdb()
+      resumeWrite().then(flushIdb)
     })
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'hidden') flushIdb()
+      if (document.visibilityState === 'hidden') resumeWrite().then(flushIdb)
     })
   }
 
@@ -482,9 +483,11 @@
       case 'renplay:flush':
       case 'renplay:save-and-exit':
         sendStorage()
-        flushIdb().then(function () {
-          post('flushed', { ok: true, id: d.id })
-        })
+        resumeWrite()
+          .then(flushIdb)
+          .then(function () {
+            post('flushed', { ok: true, id: d.id })
+          })
         break
       case 'renplay:focus':
         window.focus()
@@ -579,10 +582,12 @@
     post('ready')
     rpgMakerPcFormats()
     rpgMakerFullHeight()
+    resumeInstall()
     // Engines set up their Graphics and size their canvas while they boot: look for a while.
     var looks = 0
     var look = setInterval(function () {
       rpgMakerFullHeight()
+      resumeInstall()
       reportScreen()
       if (++looks >= 30) clearInterval(look)
     }, 1000)
